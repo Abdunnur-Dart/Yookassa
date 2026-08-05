@@ -5,8 +5,8 @@ export default async function handler(req, res) {
 
   const { amount, description } = req.body;
 
-  const shopId = process.env.YOOKASSA_SHOP_ID;
-  const secretKey = process.env.YOOKASSA_SECRET_KEY;
+  const shopId = process.env.1429571;
+  const secretKey = process.env.test_gaPD4stvGtTZhT2RXlyOM9MsZ72E1OuQajMIDTxMCFg;
 
   const authString = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
 
