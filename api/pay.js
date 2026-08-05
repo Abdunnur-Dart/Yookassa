@@ -1,12 +1,16 @@
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { amount, description } = req.body;
 
-  const shopId = process.env.1429571;
-  const secretKey = process.env.test_gaPD4stvGtTZhT2RXlyOM9MsZ72E1OuQajMIDTxMCFg;
+  const shopId = process.env.YOOKASSA_SHOP_ID;
+  const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+  if (!shopId || !secretKey) {
+    return res.status(500).json({ error: 'Missing credentials in environment variables' });
+  }
 
   const authString = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
 
@@ -20,15 +24,15 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         amount: {
-          value: amount || "100.00",
+          value: amount || "299.00",
           currency: "RUB"
         },
         confirmation: {
           type: "redirect",
-          return_url: "https://yourdomain.com/success"
+          return_url: "https://yookassaproj201514.vercel.app/success"
         },
         capture: true,
-        description: description || "Оплата заказа"
+        description: description || "Оплата премиум-подписки"
       })
     });
 
@@ -42,4 +46,4 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
-}
+};
