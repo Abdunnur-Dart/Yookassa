@@ -5,7 +5,7 @@ module.exports = async (req, res) => {
 
   const { amount, description } = req.body;
 
-const shopId = process.env.YOOKASSA_SHOP_ID;
+  const shopId = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
   if (!shopId || !secretKey) {
