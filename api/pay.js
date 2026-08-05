@@ -12,7 +12,9 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Missing credentials in environment variables' });
   }
 
-  const authString = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+  // Явная сборка строки авторизации: ShopID как логин, SecretKey как пароль
+  const credentials = `${shopId}:${secretKey}`;
+  const authString = Buffer.from(credentials).toString('base64');
 
   try {
     const response = await fetch('https://api.yookassa.ru/v3/payments', {
