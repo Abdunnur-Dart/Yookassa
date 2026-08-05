@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
         },
         confirmation: {
           type: "redirect",
-          return_url: "https://yookassaproj201514.vercel.app/success"
+return_url: "http://localhost:8080/success"
         },
         capture: true,
         description: description || "Оплата премиум-подписки"
