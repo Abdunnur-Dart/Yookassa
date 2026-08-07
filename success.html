@@ -1,124 +1,27 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Квитанция об оплате</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f4f4f9;
-        }
-        .receipt-card {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        h2 {
-            color: #28a745;
-            text-align: center;
-            margin-top: 0;
-        }
-        .subtitle {
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-        .receipt-details {
-            border-top: 2px dashed #ddd;
-            border-bottom: 2px dashed #ddd;
-            padding: 15px 0;
-            margin: 20px 0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 14px;
-            color: #333;
-        }
-        .receipt-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        .receipt-row span:last-child {
-            font-weight: bold;
-            text-align: right;
-        }
-        .total {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 12px;
-            border-top: 1px solid #eee;
-            padding-top: 10px;
-        }
-        .home-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: block;
-            text-align: center;
-            transition: background 0.3s;
-        }
-        .home-btn:hover {
-            background-color: #0056b3;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="receipt-card">
-        <h2>Оплата успешна!</h2>
-        <p class="subtitle">Спасибо за покупку. Ваша подписка активирована.</p>
-        
-        <div class="receipt-details">
-            <div class="receipt-row">
-                <span>№ чека:</span>
-                <span id="receiptId">Загрузка...</span>
-            </div>
-            <div class="receipt-row">
-                <span>Дата и время:</span>
-                <span id="receiptDate">Загрузка...</span>
-            </div>
-            <div class="receipt-row">
-                <span>Услуга:</span>
-                <span>Премиум-подписка</span>
-            </div>
-            <div class="receipt-row">
-                <span>Статус:</span>
-                <span style="color: #28a745;">Оплачено</span>
-            </div>
-            <div class="receipt-row total">
-                <span>Сумма:</span>
-                <span>299.00 ₽</span>
-            </div>
-        </div>
-
-        <a href="/" class="home-btn">На главную</a>
+<!-- success.html -->
+<div class="receipt-card" id="receipt">
+    <h2>Ваш чек</h2>
+    <div class="receipt-details">
+        <div class="receipt-row"><span>ID платежа:</span> <span id="pId">Проверка...</span></div>
+        <div class="receipt-row"><span>Статус:</span> <span id="pStatus" style="color:red">Не подтвержден</span></div>
+        <div class="receipt-row"><span>Дата:</span> <span id="pDate">-</span></div>
+        <div class="receipt-row total"><span>Итого:</span> <span>299.00 RUB</span></div>
     </div>
+</div>
 
-    <script>
-        // Генерируем текущую дату и время для чека
-        const now = new Date();
-        const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('receiptDate').textContent = formattedDate;
+<script>
+    // Получаем ID платежа из URL: ?payment_id=...
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentId = urlParams.get('payment_id');
 
-        // Генерируем уникальный номер чека для наглядности
-        const randomReceiptNum = '#T-' + Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('receiptId').textContent = randomReceiptNum;
-    </script>
-
-</body>
-</html>
+    if (paymentId) {
+        document.getElementById('pId').textContent = paymentId;
+        // Здесь должен быть fetch('/api/check-status?id=' + paymentId) 
+        // который на сервере проверяет статус через API ЮKassa
+        document.getElementById('pStatus').textContent = "Оплачено (Проверено)";
+        document.getElementById('pStatus').style.color = "green";
+        document.getElementById('pDate').textContent = new Date().toLocaleString();
+    } else {
+        document.getElementById('receipt').innerHTML = "<h3>Ошибка: данные платежа не найдены.</h3><p>Пожалуйста, используйте кнопку оплаты на главной странице.</p>";
+    }
+</script>
