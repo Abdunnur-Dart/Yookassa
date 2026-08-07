@@ -3,7 +3,7 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { amount, description } = req.body;
+  const { amount, description, userId } = req.body;
 
   const shopId = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
@@ -12,7 +12,6 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Missing credentials in environment variables' });
   }
 
-  // Явная сборка строки авторизации: ShopID как логин, SecretKey как пароль
   const credentials = `${shopId}:${secretKey}`;
   const authString = Buffer.from(credentials).toString('base64');
 
@@ -31,10 +30,13 @@ module.exports = async (req, res) => {
         },
         confirmation: {
           type: "redirect",
-return_url: "http://localhost:8080/success"
+          return_url: "https://yookassaproj201514.vercel.app/success"
         },
         capture: true,
-        description: description || "Оплата премиум-подписки"
+        description: description || "Премиум-подписка Telegraph",
+        metadata: {
+          userId: userId || "unknown"
+        }
       })
     });
 
