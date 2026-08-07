@@ -3,112 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оплата доступа — Муаллим Сани</title>
+    <title>Оплата подписки</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f4f7f6;
+            font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
+            background-color: #f4f4f9;
         }
         .card {
-            background: #ffffff;
+            background: white;
             padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             text-align: center;
             max-width: 400px;
             width: 100%;
         }
-        h2 { color: #00796b; margin-bottom: 10px; }
-        p { color: #666; font-size: 14px; margin-bottom: 25px; }
-        .btn {
-            background-color: #00796b;
+        h2 {
+            color: #333;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .pay-btn {
+            background-color: #ff7000;
             color: white;
             border: none;
-            padding: 14px 24px;
+            padding: 12px 20px;
             font-size: 16px;
-            font-weight: bold;
-            border-radius: 8px;
+            border-radius: 5px;
             cursor: pointer;
             width: 100%;
-            text-decoration: none;
-            display: inline-block;
+            transition: background 0.3s;
         }
-        .btn:hover { background-color: #004d40; }
-        .loader { display: none; margin-top: 15px; color: #666; font-size: 14px; }
-        .secure { margin-top: 15px; font-size: 12px; color: #999; }
+        .pay-btn:hover {
+            background-color: #e56300;
+        }
+        .pay-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>Оплата подписки</h2>
-        <p>Разблокировка материалов в приложении «Муаллим Сани»</p>
-        
-        <button id="pay-btn" class="btn" onclick="createPayment()">Оплатить 299 ₽</button>
-        <div id="loader" class="loader">Создание платежа...</div>
-
-        <div class="secure">🔒 Тестовая безопасная оплата ЮKassa</div>
+        <h2>Премиум-подписка</h2>
+        <p>Доступ ко всем возможностям сервиса за <strong>299.00 ₽</strong></p>
+        <button id="payButton" class="pay-btn" onclick="createPayment()">Купить</button>
     </div>
 
     <script>
         async function createPayment() {
-            const btn = document.getElementById('pay-btn');
-            const loader = document.getElementById('loader');
-            
-            btn.style.display = 'none';
-            loader.style.display = 'block';
-
-            // Ваши данные тестового магазина
-            const shopId = "1429571";
-            const secretKey = "test_gaPD4stvGtTZhT2RXIy0M9MsZ72E1OuQqjMIDTxMCFg";
-
-            // Уникальный ключ идемпотентности для API ЮKassa
-            const idempotenceKey = 'id_' + Date.now() + '_' + Math.random().toString(36).substring(2);
-
-            const paymentData = {
-                amount: {
-                    value: "299.00",
-                    currency: "RUB"
-                },
-                capture: true,
-                confirmation: {
-                    type: "redirect",
-                    // Ссылка возврата в ваше мобильное приложение (Deep Link)
-                    return_url: "mycourseapp://payment-success"
-                },
-                description: "Оплата подписки в приложении Муаллим Сани"
-            };
+            const button = document.getElementById('payButton');
+            button.disabled = true;
+            button.textContent = 'Создание платежа...';
 
             try {
-                const response = await fetch('https://api.yookassa.ru/v3/payments', {
+                // Отправляем запрос на ваш эндпоинт на Vercel
+                const response = await fetch('/api/pay', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Idempotence-Key': idempotenceKey,
-                        'Authorization': 'Basic ' + btoa(shopId + ":" + secretKey)
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(paymentData)
+                    body: JSON.stringify({
+                        amount: "299.00",
+                        description: "Премиум-подписка Telegraph",
+                        userId: "user_12345" // Здесь можно передавать реальный ID пользователя
+                    })
                 });
 
                 const data = await response.json();
 
-                if (response.ok && data.confirmation && data.confirmation.confirmation_url) {
-                    // Перенаправляем на тестовую страницу ЮKassa
-                    window.location.href = data.confirmation.confirmation_url;
+                if (response.ok && data.confirmation_url) {
+                    // Перенаправляем пользователя на страницу оплаты ЮKassa
+                    window.location.href = data.confirmation_url;
                 } else {
-                    alert('Ошибка: ' + (data.description || 'Не удалось создать платеж'));
-                    btn.style.display = 'inline-block';
-                    loader.style.display = 'none';
+                    alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
+                    button.disabled = false;
+                    button.textContent = 'Купить';
                 }
             } catch (error) {
-                alert('Ошибка сети. Убедитесь, что открыли сайт с GitHub Pages, а не локальный файл.');
-                btn.style.display = 'inline-block';
-                loader.style.display = 'none';
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка сети. Попробуйте позже.');
+                button.disabled = false;
+                button.textContent = 'Купить';
             }
         }
     </script>
