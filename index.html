@@ -96,7 +96,15 @@
             }
         }
     </script>
-<!-- Подключаем наш файл логики авторизации как модуль -->
+<div class="card" style="margin-top: 20px;">
+    <h3>Авторизация</h3>
+    <input type="email" id="email" placeholder="Email" style="display:block; margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box;">
+    <input type="password" id="loginPassword" placeholder="Пароль" style="display:block; margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box;">
+    
+    <button id="loginBtn" style="background: #007bff; color: white; padding: 10px; border: none; width: 100%; margin-bottom: 5px; cursor: pointer;">Войти</button>
+    <button id="registerBtn" style="background: #28a745; color: white; padding: 10px; border: none; width: 100%; cursor: pointer;">Зарегистрироваться</button>
+</div>
+    <!-- Подключаем наш файл логики авторизации как модуль -->
 <script type="module" src="./auth.js"></script>
 </body>
 </html>
