@@ -3,108 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оплата подписки</title>
+    <title>Оплата подписки и Авторизация</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             background-color: #f4f4f9;
         }
         .card {
             background: white;
-            padding: 30px;
+            padding: 25px;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
             max-width: 400px;
             width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 15px;
         }
-        h2 {
-            color: #333;
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 400px;
         }
-        p {
-            color: #666;
-            margin-bottom: 20px;
+        h2, h3 { color: #333; text-align: center; margin-top: 0; }
+        p { color: #666; text-align: center; font-size: 14px; }
+        input {
+            display: block;
+            margin-bottom: 10px;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
-        .pay-btn {
-            background-color: #ff7000;
-            color: white;
+        button {
+            padding: 10px;
             border: none;
-            padding: 12px 20px;
-            font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
             width: 100%;
-            transition: background 0.3s;
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 8px;
         }
-        .pay-btn:hover {
-            background-color: #e56300;
-        }
-        .pay-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
+        #loginBtn { background-color: #007bff; }
+        #registerBtn { background-color: #6c757d; }
+        .pay-btn { background-color: #ff7000; margin-top: 10px; }
+        .pay-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        #authStatus { font-size: 13px; color: #007bff; text-align: center; margin-bottom: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Премиум-подписка</h2>
-        <p>Доступ ко всем возможностям сервиса за <strong>299.00 ₽</strong></p>
-        <button id="payButton" class="pay-btn" onclick="createPayment()">Купить</button>
+    <div class="container">
+        <!-- Блок авторизации -->
+        <div class="card">
+            <h3>Аккаунт</h3>
+            <p id="authStatus">Проверка авторизации...</p>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Пароль">
+            <button id="loginBtn">Войти</button>
+            <button id="registerBtn">Зарегистрироваться</button>
+        </div>
+
+        <!-- Блок оплаты -->
+        <div class="card">
+            <h2>Премиум-подписка</h2>
+            <p>Доступ ко всем возможностям за <strong>299.00 ₽</strong></p>
+            <button id="payButton" class="pay-btn" onclick="createPayment()" disabled>Купить (требуется вход)</button>
+        </div>
     </div>
 
-    <script>
-        async function createPayment() {
-            const button = document.getElementById('payButton');
-            button.disabled = true;
-            button.textContent = 'Создание платежа...';
-
-            try {
-                // Отправляем запрос на ваш эндпоинт на Vercel
-                const response = await fetch('/api/pay', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        amount: "299.00",
-                        description: "Премиум-подписка Telegraph",
-                        userId: "user_12345" // Здесь можно передавать реальный ID пользователя
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.confirmation_url) {
-                    // Перенаправляем пользователя на страницу оплаты ЮKassa
-                    window.location.href = data.confirmation_url;
-                } else {
-                    alert('Ошибка при создании платежа: ' + (data.error || 'Неизвестная ошибка'));
-                    button.disabled = false;
-                    button.textContent = 'Купить';
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Произошла ошибка сети. Попробуйте позже.');
-                button.disabled = false;
-                button.textContent = 'Купить';
-            }
-        }
-    </script>
-<div class="card" style="margin-top: 20px;">
-    <h3>Авторизация</h3>
-    <input type="email" id="email" placeholder="Email" style="display:block; margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box;">
-    <input type="password" id="loginPassword" placeholder="Пароль" style="display:block; margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box;">
-    
-    <button id="loginBtn" style="background: #007bff; color: white; padding: 10px; border: none; width: 100%; margin-bottom: 5px; cursor: pointer;">Войти</button>
-    <button id="registerBtn" style="background: #28a745; color: white; padding: 10px; border: none; width: 100%; cursor: pointer;">Зарегистрироваться</button>
-</div>
-    <!-- Подключаем наш файл логики авторизации как модуль -->
-<script type="module" src="./auth.js"></script>
+    <!-- Подключаем логику как модуль -->
+    <script type="module" src="./auth.js"></script>
 </body>
 </html>
