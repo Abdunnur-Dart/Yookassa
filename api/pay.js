@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
         },
         confirmation: {
           type: "redirect",
-          return_url: "https://yookassaproj201514.vercel.app/success"
+          return_url: "https://yookassaproj201514.vercel.app/success.html"
         },
         capture: true,
         description: description || "Премиум-подписка Telegraph",
