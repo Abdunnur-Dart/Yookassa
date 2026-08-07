@@ -11,40 +11,58 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordInput = document.getElementById('loginPassword');
     const authStatus = document.getElementById('authStatus');
     const payButton = document.getElementById('payButton');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
 
-    // Следим за состоянием авторизации пользователя
+    // Следим за состоянием авторизации
     onAuthStateChanged(auth, (user) => {
         if (user) {
             authStatus.textContent = `Вы вошли как: ${user.email}`;
-            payButton.disabled = false; // Активируем кнопку оплаты
+            payButton.disabled = false;
         } else {
             authStatus.textContent = "Вы не авторизованы. Войдите или зарегистрируйтесь.";
-            payButton.disabled = true; // Блокируем кнопку до входа
+            payButton.disabled = true;
         }
     });
 
-    // Регистрация
-    document.getElementById('registerBtn').addEventListener('click', async () => {
+    // Обработка регистрации
+    registerBtn.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+        
+        if (!email || !password) {
+            alert("Заполните email и пароль!");
+            return;
+        }
+
         try {
-            await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            await createUserWithEmailAndPassword(auth, email, password);
             alert("Регистрация успешна!");
         } catch (error) {
             alert("Ошибка регистрации: " + error.message);
         }
     });
 
-    // Вход
-    document.getElementById('loginBtn').addEventListener('click', async () => {
+    // Обработка входа
+    loginBtn.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+
+        if (!email || !password) {
+            alert("Заполните email и пароль!");
+            return;
+        }
+
         try {
-            await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            await signInWithEmailAndPassword(auth, email, password);
             alert("Вход выполнен!");
         } catch (error) {
             alert("Ошибка входа: " + error.message);
         }
     });
 
-    // Функция создания платежа (вызывается по кнопке "Купить")
-    window.createPayment = async function() {
+    // Обработка клика по кнопке оплаты
+    payButton.addEventListener('click', async () => {
         const currentUser = auth.currentUser;
         if (!currentUser) {
             alert("Сначала выполните вход!");
@@ -63,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     amount: "299.00",
                     description: "Премиум-подписка Telegraph",
-                    userId: currentUser.uid // Передаем реальный ID пользователя из Firebase
+                    userId: currentUser.uid
                 })
             });
 
@@ -82,5 +100,5 @@ document.addEventListener('DOMContentLoaded', () => {
             payButton.disabled = false;
             payButton.textContent = 'Купить';
         }
-    };
+    });
 });
