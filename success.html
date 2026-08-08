@@ -14,7 +14,7 @@
             margin: 0;
             background-color: #f4f4f9;
         }
-        /* Изначально скрываем чек, чтобы был белый экран */
+        /* По умолчанию карточка скрыта — пользователь видит белый экран */
         .receipt-card {
             display: none; 
             background: #fffdf9;
@@ -40,14 +40,12 @@
             color: #28a745;
             text-align: center;
             margin-top: 0;
-            font-family: Arial, sans-serif;
         }
         .subtitle {
             text-align: center;
             color: #666;
             font-size: 14px;
             margin-bottom: 20px;
-            font-family: Arial, sans-serif;
         }
         .receipt-details {
             border-top: 2px dashed #d5d5d5;
@@ -86,7 +84,6 @@
             display: block;
             text-align: center;
             transition: background 0.3s;
-            font-family: Arial, sans-serif;
             margin-top: 25px;
         }
         .home-btn:hover {
@@ -123,18 +120,15 @@
             </div>
         </div>
 
-        <a href="#" class="home-btn">На главную</a>
+        <a href="https://yookassaproj201514.vercel.app/" class="home-btn">На главную</a>
     </div>
 
     <script>
-        // Читаем параметры из адресной строки браузера
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Проверяем наличие параметра payment_id (или другого ключа, который присылает платежка)
-        const paymentId = urlParams.get('payment_id');
+        // Проверяем, есть ли сохраненный ID активного платежа
+        const paymentId = localStorage.getItem('active_payment_id');
 
         if (paymentId) {
-            // Если параметр есть — делаем карточку видимой
+            // Если ID найден — делаем чек видимым
             document.getElementById('receiptCard').style.display = 'block';
 
             // Генерируем актуальную дату и время оплаты
@@ -142,10 +136,13 @@
             const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             document.getElementById('receiptDate').textContent = formattedDate;
 
-            // Отображаем номер чека (можно использовать переданный paymentId или случайный)
+            // Выводим номер чека на основе ID платежа
             document.getElementById('receiptId').textContent = '#T-' + paymentId.slice(-6);
+
+            // Удаляем ключ, чтобы при повторном обновлении или визите без оплаты был пустой экран
+            localStorage.removeItem('active_payment_id');
         }
-        // Если payment_id нет, блок .receipt-card остается скрытым (display: none), показывая пустой белый экран
+        // Если paymentId нет, блок остается скрытым (пользователь видит белый экран)
     </script>
 
 </body>
