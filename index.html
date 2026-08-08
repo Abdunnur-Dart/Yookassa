@@ -28,14 +28,6 @@
             margin-bottom: 20px;
             color: #333;
         }
-        .status-box {
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            background: #eef2f7;
-            color: #0056b3;
-            font-weight: bold;
-        }
         .price-box {
             margin: 20px 0;
             font-size: 18px;
@@ -71,39 +63,18 @@
     <div class="container">
         <h2>поддержка разработчику</h2>
         
-
-
         <div class="price-box">
-           поддержка разработчика за <span class="price">49.99 ₽</span>
+            поддержка разработчика за <span class="price">49.99 ₽</span>
         </div>
 
-        <button id="payButton" disabled>поддержать разработчика</button>
+        <button id="payButton">поддержать разработчика</button>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        let userIdFromApp = urlParams.get('user_id');
-        let appReturnUrl = urlParams.get('app_return');
-
-        const authStatusElement = document.getElementById('authStatus');
         const payButton = document.getElementById('payButton');
 
-        // Если параметры переданы в URL (первый вход из приложения), сохраняем их в localStorage
-        if (userIdFromApp) {
-            localStorage.setItem('saved_user_id', userIdFromApp);
-            if (appReturnUrl) {
-                localStorage.setItem('saved_app_return', appReturnUrl);
-            }
-        } else {
-            // Если параметров нет (вернулись с ЮKassa), пробуем восстановить из памяти браузера
-            userIdFromApp = localStorage.getItem('saved_user_id');
-            appReturnUrl = localStorage.getItem('saved_app_return');
-        }
-
-        // Проверяем наличие ID
-
         // Обработка клика по кнопке оплаты
-
+        payButton.addEventListener('click', async () => {
             payButton.disabled = true;
             payButton.textContent = "Создание платежа...";
 
@@ -116,8 +87,7 @@
                     body: JSON.stringify({
                         amount: "49.99",
                         description: "поддержка разработчика",
-                        userId: userIdFromApp,
-                        returnUrl: appReturnUrl || "https://yookassaproj201514.vercel.app/success"
+                        returnUrl: "https://yookassaproj201514.vercel.app/success"
                     })
                 });
 
@@ -128,13 +98,13 @@
                 } else {
                     alert('Ошибка создания платежа: ' + (data.error || 'Неизвестная ошибка'));
                     payButton.disabled = false;
-                    payButton.textContent = "поддержка разработчика";
+                    payButton.textContent = "поддержать разработчика";
                 }
             } catch (error) {
                 console.error('Ошибка сети:', error);
                 alert('Произошла ошибка при соединении с сервером.');
                 payButton.disabled = false;
-                payButton.textContent = "поддержка разработчика";
+                payButton.textContent = "поддержать разработчика";
             }
         });
     </script>
