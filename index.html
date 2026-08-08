@@ -33,6 +33,33 @@
             font-size: 18px;
             color: #444;
         }
+        /* NEW */
+        .amount-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .amount-btn {
+            padding: 8px 12px;
+            border: 1px solid #ff8c00;
+            background: white;
+            color: #ff8c00;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .amount-btn.active {
+            background: #ff8c00;
+            color: white;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        /* END NEW */
         .price {
             font-weight: bold;
             color: #28a745;
@@ -63,8 +90,17 @@
     <div class="container">
         <h2>поддержка разработчику</h2>
         
+        <!-- NEW -->
+        <div class="amount-selector">
+            <button class="amount-btn" data-amount="49.99">49.99</button>
+            <button class="amount-btn" data-amount="50.00">50.00</button>
+            <button class="amount-btn" data-amount="100.00">100.00</button>
+            <input type="number" id="customAmount" placeholder="Своя сумма">
+        </div>
+        <!-- END NEW -->
+        
         <div class="price-box">
-            поддержка разработчика за <span class="price">49.99 ₽</span>
+            поддержка разработчика за <span class="price" id="displayAmount">49.99</span> ₽
         </div>
 
         <button id="payButton">поддержать разработчика</button>
@@ -72,6 +108,39 @@
 
     <script>
         const payButton = document.getElementById('payButton');
+        const customAmount = document.getElementById('customAmount'); // NEW
+        const displayAmount = document.getElementById('displayAmount'); // NEW
+        let currentAmount = "49.99"; // CHANGED
+
+        // NEW: Принудительно убираем подсветку со всех кнопок при загрузке страницы
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+
+        // NEW: Функция для обновления выбранной суммы и подсветки
+        function updateSelection(amount, clickedElement = null) {
+            currentAmount = amount;
+            displayAmount.textContent = amount;
+            
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            
+            if (clickedElement) {
+                clickedElement.classList.add('active');
+            }
+        }
+
+        // NEW: Логика клика по кнопкам выбора суммы
+        document.querySelectorAll('.amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                updateSelection(btn.getAttribute('data-amount'), btn);
+                customAmount.value = '';
+            });
+        });
+
+        // NEW: Логика ручного ввода суммы
+        customAmount.addEventListener('input', () => {
+            if (customAmount.value > 0) {
+                updateSelection(customAmount.value);
+            }
+        });
 
         // Обработка клика по кнопке оплаты
         payButton.addEventListener('click', async () => {
@@ -85,7 +154,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        amount: "49.99",
+                        amount: currentAmount, // CHANGED
                         description: "поддержка разработчика",
                         returnUrl: "https://yookassaproj201514.vercel.app/success"
                     })
