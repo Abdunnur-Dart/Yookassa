@@ -79,31 +79,41 @@
             Доступ ко всем возможностям за <span class="price">299.00 ₽</span>
         </div>
 
-        <button id="payButton" disabled>Купить (требуется вход)</button>
+        <button id="payButton" disabled>Купить Премиум-подписку</button>
     </div>
 
     <script>
-        // 1. Считываем параметры из адресной строки (переданные из Flutter)
         const urlParams = new URLSearchParams(window.location.search);
-        const userIdFromApp = urlParams.get('user_id');
-        const appReturnUrl = urlParams.get('app_return');
+        let userIdFromApp = urlParams.get('user_id');
+        let appReturnUrl = urlParams.get('app_return');
 
         const authStatusElement = document.getElementById('authStatus');
         const payButton = document.getElementById('payButton');
 
-        // 2. Проверяем наличие user_id
+        // Если параметры переданы в URL (первый вход из приложения), сохраняем их в localStorage
+        if (userIdFromApp) {
+            localStorage.setItem('saved_user_id', userIdFromApp);
+            if (appReturnUrl) {
+                localStorage.setItem('saved_app_return', appReturnUrl);
+            }
+        } else {
+            // Если параметров нет (вернулись с ЮKassa), пробуем восстановить из памяти браузера
+            userIdFromApp = localStorage.getItem('saved_user_id');
+            appReturnUrl = localStorage.getItem('saved_app_return');
+        }
+
+        // Проверяем наличие ID
         if (userIdFromApp) {
             authStatusElement.textContent = "Пользователь успешно авторизован!";
             authStatusElement.style.color = "#28a745";
             
             payButton.disabled = false;
-            payButton.textContent = "Купить Премиум-подписку";
         } else {
             authStatusElement.textContent = "Ошибка: ID пользователя не найден. Откройте страницу из приложения.";
             authStatusElement.style.color = "#dc3545";
         }
 
-        // 3. Обработка клика по кнопке оплаты
+        // Обработка клика по кнопке оплаты
         payButton.addEventListener('click', async () => {
             if (!userIdFromApp) {
                 alert("Пользователь не авторизован!");
@@ -114,7 +124,6 @@
             payButton.textContent = "Создание платежа...";
 
             try {
-                // Отправляем запрос на ваш бэкенд (файл api/pay.js)
                 const response = await fetch('/api/pay', {
                     method: 'POST',
                     headers: {
@@ -131,7 +140,6 @@
                 const data = await response.json();
 
                 if (response.ok && data.confirmation_url) {
-                    // Перенаправляем пользователя на страницу оплаты ЮKassa
                     window.location.href = data.confirmation_url;
                 } else {
                     alert('Ошибка создания платежа: ' + (data.error || 'Неизвестная ошибка'));
