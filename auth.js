@@ -19,8 +19,8 @@ payButton.addEventListener('click', async () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                amount: "299.00",
-                description: "Премиум-подписка Муаллим Сани",
+                amount: "49.99",
+                description: "поддержка разработчику",
                 userId: currentUser.uid,
                 returnUrl: appReturnUrl // Передаем диплинк на бэкенд
             })
@@ -33,7 +33,7 @@ payButton.addEventListener('click', async () => {
         } else {
             alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
             payButton.disabled = false;
-            payButton.textContent = 'Купить';
+            payButton.textContent = 'поддержка';
         }
     } catch (error) {
         console.error('Ошибка:', error);
