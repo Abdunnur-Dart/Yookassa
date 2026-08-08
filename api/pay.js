@@ -12,11 +12,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { amount, description, userId, returnUrl } = req.body;
-
-    if (!userId) {
-        return res.status(400).json({ error: 'Missing userId' });
-    }
+    // Убираем userId из деструктуризации запроса
+    const { amount, description, returnUrl } = req.body;
 
     // Данные для авторизации в ЮKassa берутся из переменных окружения Vercel
     const shopId = process.env.YOOKASSA_SHOP_ID;
@@ -39,7 +36,7 @@ module.exports = async (req, res) => {
             },
             body: JSON.stringify({
                 amount: {
-                    value: amount || "299.00",
+                    value: amount || "49.99",
                     currency: "RUB"
                 },
                 capture: true,
@@ -47,10 +44,7 @@ module.exports = async (req, res) => {
                     type: 'redirect',
                     return_url: returnUrl || "https://yookassaproj201514.vercel.app/"
                 },
-                description: description || "Премиум-подписка Муаллим Сани",
-                metadata: {
-                    userId: userId // Важно для связки платежа с конкретным пользователем в Firestore
-                }
+                description: description || "поддержка разработчика"
             })
         });
 
