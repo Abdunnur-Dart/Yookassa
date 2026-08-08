@@ -12,18 +12,17 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #f4f4f9;
+            background-color: #e6eaeed; /* Чуть более темный фон страницы для контраста с «бумагой» */
         }
-        /* По умолчанию карточка скрыта — пользователь видит белый экран */
         .receipt-card {
-            display: none; 
-            background: #fffdf9;
+            background: #fffdf9; /* Цвет настоящей чековой бумаги */
             padding: 35px 25px 30px 25px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             max-width: 400px;
             width: 100%;
             box-sizing: border-box;
             position: relative;
+            /* Эффект зубчатого края чека снизу */
             border-bottom: 5px solid #fffdf9;
         }
         .receipt-card::after {
@@ -40,12 +39,14 @@
             color: #28a745;
             text-align: center;
             margin-top: 0;
+            font-family: Arial, sans-serif;
         }
         .subtitle {
             text-align: center;
             color: #666;
             font-size: 14px;
             margin-bottom: 20px;
+            font-family: Arial, sans-serif;
         }
         .receipt-details {
             border-top: 2px dashed #d5d5d5;
@@ -84,6 +85,7 @@
             display: block;
             text-align: center;
             transition: background 0.3s;
+            font-family: Arial, sans-serif;
             margin-top: 25px;
         }
         .home-btn:hover {
@@ -93,7 +95,7 @@
 </head>
 <body>
 
-    <div class="receipt-card" id="receiptCard">
+    <div class="receipt-card">
         <h2>Оплата успешна!</h2>
         <p class="subtitle">Спасибо за поддержку разработчика</p>
         
@@ -120,29 +122,18 @@
             </div>
         </div>
 
-        <a href="https://yookassaproj201514.vercel.app/" class="home-btn">На главную</a>
+        <a href="#" class="home-btn">На главную</a>
     </div>
 
     <script>
-        // Проверяем, есть ли сохраненный ID активного платежа
-        const paymentId = localStorage.getItem('active_payment_id');
+        // Генерируем актуальную дату и время оплаты
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('receiptDate').textContent = formattedDate;
 
-        if (paymentId) {
-            // Если ID найден — делаем чек видимым
-            document.getElementById('receiptCard').style.display = 'block';
-
-            // Генерируем актуальную дату и время оплаты
-            const now = new Date();
-            const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            document.getElementById('receiptDate').textContent = formattedDate;
-
-            // Выводим номер чека на основе ID платежа
-            document.getElementById('receiptId').textContent = '#T-' + paymentId.slice(-6);
-
-            // Удаляем ключ, чтобы при повторном обновлении или визите без оплаты был пустой экран
-            localStorage.removeItem('active_payment_id');
-        }
-        // Если paymentId нет, блок остается скрытым (пользователь видит белый экран)
+        // Генерируем уникальный номер чека для отображения
+        const randomReceiptNum = '#T-' + Math.floor(100000 + Math.random() * 900000);
+        document.getElementById('receiptId').textContent = randomReceiptNum;
     </script>
 
 </body>
