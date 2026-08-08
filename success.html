@@ -12,17 +12,18 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #e6eaeed; /* Чуть более темный фон страницы для контраста с «бумагой» */
+            background-color: #f4f4f9;
         }
+        /* Изначально скрываем чек, чтобы был белый экран */
         .receipt-card {
-            background: #fffdf9; /* Цвет настоящей чековой бумаги */
+            display: none; 
+            background: #fffdf9;
             padding: 35px 25px 30px 25px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             max-width: 400px;
             width: 100%;
             box-sizing: border-box;
             position: relative;
-            /* Эффект зубчатого края чека снизу */
             border-bottom: 5px solid #fffdf9;
         }
         .receipt-card::after {
@@ -95,7 +96,7 @@
 </head>
 <body>
 
-    <div class="receipt-card">
+    <div class="receipt-card" id="receiptCard">
         <h2>Оплата успешна!</h2>
         <p class="subtitle">Спасибо за поддержку разработчика</p>
         
@@ -126,14 +127,25 @@
     </div>
 
     <script>
-        // Генерируем актуальную дату и время оплаты
-        const now = new Date();
-        const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('receiptDate').textContent = formattedDate;
+        // Читаем параметры из адресной строки браузера
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Проверяем наличие параметра payment_id (или другого ключа, который присылает платежка)
+        const paymentId = urlParams.get('payment_id');
 
-        // Генерируем уникальный номер чека для отображения
-        const randomReceiptNum = '#T-' + Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('receiptId').textContent = randomReceiptNum;
+        if (paymentId) {
+            // Если параметр есть — делаем карточку видимой
+            document.getElementById('receiptCard').style.display = 'block';
+
+            // Генерируем актуальную дату и время оплаты
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('receiptDate').textContent = formattedDate;
+
+            // Отображаем номер чека (можно использовать переданный paymentId или случайный)
+            document.getElementById('receiptId').textContent = '#T-' + paymentId.slice(-6);
+        }
+        // Если payment_id нет, блок .receipt-card остается скрытым (display: none), показывая пустой белый экран
     </script>
 
 </body>
