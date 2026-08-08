@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Электронный чек</title>
+    <title>Квитанция об оплате</title>
     <style>
         body {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            background-color: #eef2f5;
+            background-color: #e6eaeed; /* Чуть более темный фон страницы для контраста с «бумагой» */
         }
         .receipt-card {
-            background: #fffdf9; /* Цвет настоящей бумажной ленты */
-            padding: 30px 25px;
+            background: #fffdf9; /* Цвет настоящей чековой бумаги */
+            padding: 35px 25px 30px 25px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             max-width: 400px;
             width: 100%;
             box-sizing: border-box;
             position: relative;
-            border-top: 5px solid #d4cbbd;
+            /* Эффект зубчатого края чека снизу */
+            border-bottom: 5px solid #fffdf9;
         }
-        /* Эффект зубчиков чека сверху/снизу (опционально через псевдоэлементы) */
         .receipt-card::after {
             content: "";
             position: absolute;
@@ -36,83 +36,72 @@
             background-size: 16px 20px;
         }
         h2 {
-            color: #111;
+            color: #28a745;
             text-align: center;
             margin-top: 0;
-            font-size: 20px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            font-family: Arial, sans-serif;
         }
         .subtitle {
             text-align: center;
-            color: #555;
-            font-size: 13px;
+            color: #666;
+            font-size: 14px;
             margin-bottom: 20px;
+            font-family: Arial, sans-serif;
         }
         .receipt-details {
-            border-top: 1px dashed #999;
-            border-bottom: 1px dashed #999;
+            border-top: 2px dashed #d5d5d5;
+            border-bottom: 2px dashed #d5d5d5;
             padding: 15px 0;
-            margin: 15px 0;
-            font-size: 13px;
-            color: #222;
+            margin: 20px 0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #333;
         }
         .receipt-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         .receipt-row span:last-child {
             font-weight: bold;
             text-align: right;
         }
         .total {
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             margin-top: 12px;
-            border-top: 1px dashed #999;
+            border-top: 1px solid #eee;
             padding-top: 10px;
         }
-        .footer-info {
-            text-align: center;
-            font-size: 11px;
-            color: #666;
-            margin-top: 20px;
-            line-height: 1.4;
-        }
         .home-btn {
-            background-color: #333;
+            background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            font-size: 14px;
-            border-radius: 4px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 5px;
             cursor: pointer;
             text-decoration: none;
             display: block;
             text-align: center;
-            margin-top: 25px;
-            font-family: Arial, sans-serif;
             transition: background 0.3s;
+            font-family: Arial, sans-serif;
+            margin-top: 25px;
         }
         .home-btn:hover {
-            background-color: #000;
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
 
     <div class="receipt-card">
-        <h2>Кассовый чек</h2>
-        <p class="subtitle">Электронная оплата услуг</p>
+        <h2>Оплата успешна!</h2>
+        <p class="subtitle">Спасибо за поддержку разработчика</p>
         
         <div class="receipt-details">
             <div class="receipt-row">
-                <span>ИНН получателя:</span>
-                <span>770123456789</span>
-            </div>
-            <div class="receipt-row">
-                <span>№ чека в смене:</span>
+                <span>№ чека:</span>
                 <span id="receiptId">Загрузка...</span>
             </div>
             <div class="receipt-row">
@@ -120,43 +109,30 @@
                 <span id="receiptDate">Загрузка...</span>
             </div>
             <div class="receipt-row">
-                <span>Кассир:</span>
-                <span>Робот-автомат</span>
+                <span>Услуга:</span>
+                <span>поддержка разработчика</span>
             </div>
             <div class="receipt-row">
-                <span>Наименование:</span>
-                <span>Поддержка разработчика</span>
-            </div>
-            <div class="receipt-row">
-                <span>Способ оплаты:</span>
-                <span>Банковская карта</span>
-            </div>
-            <div class="receipt-row">
-                <span>НДС:</span>
-                <span>Без НДС</span>
+                <span>Статус:</span>
+                <span style="color: #28a745;">Оплачено</span>
             </div>
             <div class="receipt-row total">
-                <span>ИТОГО:</span>
+                <span>Сумма:</span>
                 <span>49.99 RUB</span>
             </div>
         </div>
 
-        <div class="footer-info">
-            <span>ФД: 94815 | ФН: 9960440001234567</span><br>
-            <span>Сайт ФНС: www.nalog.ru</span>
-        </div>
-
-        <a href="#" class="home-btn">Вернуться на главную</a>
+        <a href="#" class="home-btn">На главную</a>
     </div>
 
     <script>
         // Генерируем актуальную дату и время оплаты
         const now = new Date();
-        const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('receiptDate').textContent = formattedDate;
 
         // Генерируем уникальный номер чека для отображения
-        const randomReceiptNum = Math.floor(1000 + Math.random() * 9000);
+        const randomReceiptNum = '#T-' + Math.floor(100000 + Math.random() * 900000);
         document.getElementById('receiptId').textContent = randomReceiptNum;
     </script>
 
