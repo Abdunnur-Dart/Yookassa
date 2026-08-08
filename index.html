@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Оплата подписки и Авторизация</title>
+    <title>поддержка разработчику</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,17 +69,17 @@
 <body>
 
     <div class="container">
-        <h2>Премиум-подписка</h2>
+        <h2>поддержка разработчику</h2>
         
         <div id="authStatus" class="status-box">
             Проверка авторизации...
         </div>
 
         <div class="price-box">
-            Доступ ко всем возможностям за <span class="price">299.00 ₽</span>
+           поддержка разработчика за <span class="price">49.99 ₽</span>
         </div>
 
-        <button id="payButton" disabled>Купить Премиум-подписку</button>
+        <button id="payButton" disabled>поддержать разработчика</button>
     </div>
 
     <script>
@@ -130,8 +130,8 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        amount: "299.00",
-                        description: "Премиум-подписка Муаллим Сани",
+                        amount: "49.99",
+                        description: "поддержка разработчика",
                         userId: userIdFromApp,
                         returnUrl: appReturnUrl || "https://yookassaproj201514.vercel.app/"
                     })
@@ -144,13 +144,13 @@
                 } else {
                     alert('Ошибка создания платежа: ' + (data.error || 'Неизвестная ошибка'));
                     payButton.disabled = false;
-                    payButton.textContent = "Купить Премиум-подписку";
+                    payButton.textContent = "поддержка разработчика";
                 }
             } catch (error) {
                 console.error('Ошибка сети:', error);
                 alert('Произошла ошибка при соединении с сервером.');
                 payButton.disabled = false;
-                payButton.textContent = "Купить Премиум-подписку";
+                payButton.textContent = "поддержка разработчика";
             }
         });
     </script>
