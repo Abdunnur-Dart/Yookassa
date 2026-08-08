@@ -103,22 +103,8 @@
         }
 
         // Проверяем наличие ID
-        if (userIdFromApp) {
-            authStatusElement.textContent = "Пользователь успешно авторизован!";
-            authStatusElement.style.color = "#28a745";
-            
-            payButton.disabled = false;
-        } else {
-            authStatusElement.textContent = "Ошибка: ID пользователя не найден. Откройте страницу из приложения.";
-            authStatusElement.style.color = "#dc3545";
-        }
 
         // Обработка клика по кнопке оплаты
-        payButton.addEventListener('click', async () => {
-            if (!userIdFromApp) {
-                alert("Пользователь не авторизован!");
-                return;
-            }
 
             payButton.disabled = true;
             payButton.textContent = "Создание платежа...";
@@ -133,7 +119,7 @@
                         amount: "49.99",
                         description: "поддержка разработчика",
                         userId: userIdFromApp,
-                        returnUrl: appReturnUrl || "https://yookassaproj201514.vercel.app/"
+                        returnUrl: appReturnUrl || "https://yookassaproj201514.vercel.app/success"
                     })
                 });
 
