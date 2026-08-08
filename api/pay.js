@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-    // Настройка CORS для разрешения запросов из приложения
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,10 +11,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Убираем userId из деструктуризации запроса
-    const { amount, description, returnUrl } = req.body;
+    const { amount, description } = req.body;
 
-    // Данные для авторизации в ЮKassa берутся из переменных окружения Vercel
     const shopId = process.env.YOOKASSA_SHOP_ID;
     const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
@@ -24,9 +21,11 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Уникальный ключ идемпотентности для защиты от дублирования платежей
         const idempotenceKey = Math.random().toString(36).substring(2);
         
+        // Генерируем уникальный ID заказа для этой сессии оплаты
+        const orderId = 'ord_' + Math.random().toString(36).substring(2, 12);
+
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
             method: 'POST',
             headers: {
@@ -42,7 +41,8 @@ module.exports = async (req, res) => {
                 capture: true,
                 confirmation: {
                     type: 'redirect',
-                    return_url: returnUrl || "https://yookassaproj201514.vercel.app/"
+                    // Передаем order_id прямо в ссылке возврата ЮKassa
+                    return_url: `https://yookassaproj201514.vercel.app/success?order_id=${orderId}`
                 },
                 description: description || "поддержка разработчика"
             })
@@ -54,7 +54,6 @@ module.exports = async (req, res) => {
             return res.status(response.status).json({ error: data.description || 'YooKassa error' });
         }
 
-        // Возвращаем клиенту ссылку на оплату
         return res.status(200).json({
             confirmation_url: data.confirmation.confirmation_url,
             payment_id: data.id
