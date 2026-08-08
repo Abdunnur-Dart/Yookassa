@@ -24,65 +24,23 @@
             max-width: 400px;
             text-align: center;
         }
-        h2 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-        .price-box {
-            margin: 20px 0;
-            font-size: 18px;
-            color: #444;
-        }
-        /* NEW */
-        .amount-selector {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .amount-btn {
-            padding: 8px 12px;
-            border: 1px solid #ff8c00;
-            background: white;
-            color: #ff8c00;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .amount-btn.active {
-            background: #ff8c00;
-            color: white;
-        }
-        input[type="number"] {
-            width: 100px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
+        h2 { margin-bottom: 20px; color: #333; }
+        .price-box { margin: 20px 0; font-size: 18px; color: #444; }
+        
+        .amount-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .amount-btn { padding: 8px 12px; border: 1px solid #ff8c00; background: white; color: #ff8c00; border-radius: 5px; cursor: pointer; }
+        .amount-btn.active { background: #ff8c00; color: white; }
+        
+        /* NEW: Стили для новых полей */
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; font-size: 14px; margin-bottom: 5px; color: #666; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         /* END NEW */
-        .price {
-            font-weight: bold;
-            color: #28a745;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #ff8c00;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        button:hover:not(:disabled) {
-            background-color: #e07b00;
-        }
+
+        .price { font-weight: bold; color: #28a745; }
+        button { width: 100%; padding: 12px; background-color: #ff8c00; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        button:hover:not(:disabled) { background-color: #e07b00; }
     </style>
 </head>
 <body>
@@ -90,12 +48,21 @@
     <div class="container">
         <h2>поддержка разработчику</h2>
         
-        <!-- NEW -->
         <div class="amount-selector">
             <button class="amount-btn" data-amount="49.99">49.99</button>
-            <button class="amount-btn" data-amount="50.00">50.00</button>
-            <button class="amount-btn" data-amount="100.00">100.00</button>
+            <button class="amount-btn" data-amount="100.00">100</button>
+            <button class="amount-btn" data-amount="500.00">500</button>
             <input type="number" id="customAmount" placeholder="Своя сумма">
+        </div>
+
+        <!-- NEW: Поля для имени и сообщения -->
+        <div class="input-group">
+            <label>Ваше имя</label>
+            <input type="text" id="donorName" placeholder="Введите имя">
+        </div>
+        <div class="input-group">
+            <label>Сообщение</label>
+            <input type="text" id="donorMessage" placeholder="Ваше пожелание">
         </div>
         <!-- END NEW -->
         
@@ -108,26 +75,19 @@
 
     <script>
         const payButton = document.getElementById('payButton');
-        const customAmount = document.getElementById('customAmount'); // NEW
-        const displayAmount = document.getElementById('displayAmount'); // NEW
-        let currentAmount = "49.99"; // CHANGED
+        const customAmount = document.getElementById('customAmount');
+        const displayAmount = document.getElementById('displayAmount');
+        let currentAmount = "49.99";
 
-        // NEW: Принудительно убираем подсветку со всех кнопок при загрузке страницы
         document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
 
-        // NEW: Функция для обновления выбранной суммы и подсветки
         function updateSelection(amount, clickedElement = null) {
             currentAmount = amount;
             displayAmount.textContent = amount;
-            
             document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-            
-            if (clickedElement) {
-                clickedElement.classList.add('active');
-            }
+            if (clickedElement) clickedElement.classList.add('active');
         }
 
-        // NEW: Логика клика по кнопкам выбора суммы
         document.querySelectorAll('.amount-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 updateSelection(btn.getAttribute('data-amount'), btn);
@@ -135,27 +95,30 @@
             });
         });
 
-        // NEW: Логика ручного ввода суммы
         customAmount.addEventListener('input', () => {
-            if (customAmount.value > 0) {
-                updateSelection(customAmount.value);
-            }
+            if (customAmount.value > 0) updateSelection(customAmount.value);
         });
 
-        // Обработка клика по кнопке оплаты
         payButton.addEventListener('click', async () => {
+            // NEW: Собираем данные из новых полей
+            const donorName = document.getElementById('donorName').value || "Аноним";
+            const donorMessage = document.getElementById('donorMessage').value || "";
+
             payButton.disabled = true;
             payButton.textContent = "Создание платежа...";
 
             try {
                 const response = await fetch('/api/pay', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        amount: currentAmount, // CHANGED
+                        amount: currentAmount,
                         description: "поддержка разработчика",
+                        // NEW: Передаем данные в метаданные для ЮKassa
+                        metadata: {
+                            donor_name: donorName,
+                            donor_message: donorMessage
+                        },
                         returnUrl: "https://yookassaproj201514.vercel.app/success"
                     })
                 });
@@ -165,13 +128,13 @@
                 if (response.ok && data.confirmation_url) {
                     window.location.href = data.confirmation_url;
                 } else {
-                    alert('Ошибка создания платежа: ' + (data.error || 'Неизвестная ошибка'));
+                    alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
                     payButton.disabled = false;
                     payButton.textContent = "поддержать разработчика";
                 }
             } catch (error) {
                 console.error('Ошибка сети:', error);
-                alert('Произошла ошибка при соединении с сервером.');
+                alert('Ошибка соединения.');
                 payButton.disabled = false;
                 payButton.textContent = "поддержать разработчика";
             }
