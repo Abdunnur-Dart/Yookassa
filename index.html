@@ -7,80 +7,144 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f4f4f9;
-        }
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 15px;
+            height: 100vh;
         }
         .container {
-            display: flex;
-            flex-direction: column;
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
+            text-align: center;
         }
-        h2, h3 { color: #333; text-align: center; margin-top: 0; }
-        p { color: #666; text-align: center; font-size: 14px; }
-        input {
-            display: block;
-            margin-bottom: 10px;
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .status-box {
+            margin-bottom: 20px;
+            padding: 15px;
             border-radius: 5px;
+            background: #eef2f7;
+            color: #0056b3;
+            font-weight: bold;
+        }
+        .price-box {
+            margin: 20px 0;
+            font-size: 18px;
+            color: #444;
+        }
+        .price {
+            font-weight: bold;
+            color: #28a745;
         }
         button {
-            padding: 10px;
+            width: 100%;
+            padding: 12px;
+            background-color: #ff8c00;
+            color: white;
             border: none;
             border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
-            color: white;
-            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
         }
-        #loginBtn { background-color: #007bff; }
-        #registerBtn { background-color: #6c757d; }
-        .pay-btn { background-color: #ff7000; margin-top: 10px; }
-        .pay-btn:disabled { background-color: #ccc; cursor: not-allowed; }
-        #authStatus { font-size: 13px; color: #007bff; text-align: center; margin-bottom: 15px; font-weight: bold; }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background-color: #e07b00;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- Блок авторизации -->
-        <div class="card">
-            <h3>Аккаунт</h3>
-            <p id="authStatus">Проверка авторизации...</p>
-            <input type="email" id="email" placeholder="Email">
-            <input type="password" id="loginPassword" placeholder="Пароль">
-            <button id="loginBtn">Войти</button>
-            <button id="registerBtn">Зарегистрироваться</button>
+        <h2>Премиум-подписка</h2>
+        
+        <div id="authStatus" class="status-box">
+            Проверка авторизации...
         </div>
 
-        <!-- Блок оплаты -->
-        <div class="card">
-            <h2>Премиум-подписка</h2>
-            <p>Доступ ко всем возможностям за <strong>299.00 ₽</strong></p>
-            <button id="payButton" class="pay-btn" disabled>Купить (требуется вход)</button>
+        <div class="price-box">
+            Доступ ко всем возможностям за <span class="price">299.00 ₽</span>
         </div>
+
+        <button id="payButton" disabled>Купить (требуется вход)</button>
     </div>
 
-    <!-- Подключаем логику как модуль -->
-    <script type="module" src="./auth.js"></script>
+    <script>
+        // 1. Считываем параметры из адресной строки (переданные из Flutter)
+        const urlParams = new URLSearchParams(window.location.search);
+        const userIdFromApp = urlParams.get('user_id');
+        const appReturnUrl = urlParams.get('app_return');
+
+        const authStatusElement = document.getElementById('authStatus');
+        const payButton = document.getElementById('payButton');
+
+        // 2. Проверяем наличие user_id
+        if (userIdFromApp) {
+            authStatusElement.textContent = "Пользователь успешно авторизован!";
+            authStatusElement.style.color = "#28a745";
+            
+            payButton.disabled = false;
+            payButton.textContent = "Купить Премиум-подписку";
+        } else {
+            authStatusElement.textContent = "Ошибка: ID пользователя не найден. Откройте страницу из приложения.";
+            authStatusElement.style.color = "#dc3545";
+        }
+
+        // 3. Обработка клика по кнопке оплаты
+        payButton.addEventListener('click', async () => {
+            if (!userIdFromApp) {
+                alert("Пользователь не авторизован!");
+                return;
+            }
+
+            payButton.disabled = true;
+            payButton.textContent = "Создание платежа...";
+
+            try {
+                // Отправляем запрос на ваш бэкенд (файл api/pay.js)
+                const response = await fetch('/api/pay', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        amount: "299.00",
+                        description: "Премиум-подписка Муаллим Сани",
+                        userId: userIdFromApp,
+                        returnUrl: appReturnUrl || "https://yookassaproj201514.vercel.app/"
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.confirmation_url) {
+                    // Перенаправляем пользователя на страницу оплаты ЮKassa
+                    window.location.href = data.confirmation_url;
+                } else {
+                    alert('Ошибка создания платежа: ' + (data.error || 'Неизвестная ошибка'));
+                    payButton.disabled = false;
+                    payButton.textContent = "Купить Премиум-подписку";
+                }
+            } catch (error) {
+                console.error('Ошибка сети:', error);
+                alert('Произошла ошибка при соединении с сервером.');
+                payButton.disabled = false;
+                payButton.textContent = "Купить Премиум-подписку";
+            }
+        });
+    </script>
 </body>
 </html>
