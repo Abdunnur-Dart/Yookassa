@@ -1,12 +1,10 @@
 module.exports = async (req, res) => {
-  // Разрешаем только POST-запросы
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { amount, description, userId } = req.body;
+  const { amount, description, userId, returnUrl } = req.body;
 
-  // Получаем ключи из переменных окружения Vercel
   const shopId = process.env.YOOKASSA_SHOP_ID;
   const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
@@ -14,12 +12,13 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'Missing credentials in environment variables' });
   }
 
-  // Кодируем данные для Basic Auth (авторизации в ЮKassa)
   const credentials = `${shopId}:${secretKey}`;
   const authString = Buffer.from(credentials).toString('base64');
 
+  // Если приложение передало свой диплинк, используем его, иначе стандартный сайт
+  const finalReturnUrl = returnUrl || "https://yookassaproj201514.vercel.app/success";
+
   try {
-    // Отправляем запрос к API ЮKassa для создания платежа
     const response = await fetch('https://api.yookassa.ru/v3/payments', {
       method: 'POST',
       headers: {
@@ -34,10 +33,10 @@ module.exports = async (req, res) => {
         },
         confirmation: {
           type: "redirect",
-          return_url: "https://yookassaproj201514.vercel.app/success"
+          return_url: finalReturnUrl // ЮKassa вернет пользователя сюда
         },
         capture: true,
-        description: description || "Премиум-подписка Telegraph",
+        description: description || "Премиум-подписка Муаллим Сани",
         metadata: {
           userId: userId || "unknown"
         }
@@ -46,7 +45,6 @@ module.exports = async (req, res) => {
 
     const data = await response.json();
     
-    // Проверяем, вернула ли ЮKassa ссылку на оплату
     if (data.confirmation && data.confirmation.confirmation_url) {
       return res.status(200).json({ confirmation_url: data.confirmation.confirmation_url });
     } else {
