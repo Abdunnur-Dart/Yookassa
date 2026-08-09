@@ -197,21 +197,24 @@
     </article>
 
     <script>
-        // 1. Получаем параметр payment_id из URL (например: ?payment_id=27d9a70d-000f-5000-8000-1178635848bb)
+        // Ищем параметр order_id из URL страницы
         const urlParams = new URLSearchParams(window.location.search);
-        const realPaymentId = urlParams.get('payment_id');
+        const realOrderId = urlParams.get('order_id');
         const receiptIdElem = document.getElementById('receiptId');
 
-        if (realPaymentId) {
-            receiptIdElem.textContent = realPaymentId;
-            // Слегка уменьшаем шрифт для длинных идентификаторов ЮKassa
-            receiptIdElem.style.fontSize = '11px'; 
+        if (realOrderId) {
+            receiptIdElem.textContent = realOrderId;
+            
+            // Если ID слишком длинный, уменьшаем шрифт
+            if (realOrderId.length > 15) {
+                receiptIdElem.style.fontSize = '12px'; 
+            }
         } else {
-            // Резервный номер, если страницу открыли без параметров
+            // Запасной случайный номер на случай, если зашли без параметра
             receiptIdElem.textContent = '#T-' + Math.floor(100000 + Math.random() * 900000);
         }
 
-        // 2. Генерируем актуальную дату и время оплаты
+        // Генерируем актуальную дату и время оплаты
         const now = new Date();
         const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('receiptDate').textContent = formattedDate;
