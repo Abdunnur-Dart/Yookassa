@@ -101,11 +101,14 @@
         .receipt-row span:first-child {
             color: #64748b;
             padding-right: 10px;
+            white-space: nowrap;
         }
 
         .receipt-row span:last-child {
             font-weight: bold;
             text-align: right;
+            word-break: break-all; /* Защита от переполнения длинными ID */
+            max-width: 65%;
         }
 
         .status-paid {
@@ -188,21 +191,30 @@
         </section>
 
         <a href="#" class="home-btn">
-            <!-- Маленькая стрелочка для кнопки -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             На главную
         </a>
     </article>
 
     <script>
-        // Генерируем актуальную дату и время оплаты
+        // 1. Получаем параметр payment_id из URL (например: ?payment_id=27d9a70d-000f-5000-8000-1178635848bb)
+        const urlParams = new URLSearchParams(window.location.search);
+        const realPaymentId = urlParams.get('payment_id');
+        const receiptIdElem = document.getElementById('receiptId');
+
+        if (realPaymentId) {
+            receiptIdElem.textContent = realPaymentId;
+            // Слегка уменьшаем шрифт для длинных идентификаторов ЮKassa
+            receiptIdElem.style.fontSize = '11px'; 
+        } else {
+            // Резервный номер, если страницу открыли без параметров
+            receiptIdElem.textContent = '#T-' + Math.floor(100000 + Math.random() * 900000);
+        }
+
+        // 2. Генерируем актуальную дату и время оплаты
         const now = new Date();
         const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('receiptDate').textContent = formattedDate;
-
-        // Генерируем уникальный номер чека для отображения
-        const randomReceiptNum = '#T-' + Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('receiptId').textContent = randomReceiptNum;
     </script>
 
 </body>
