@@ -1,17 +1,18 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 // Безопасная инициализация Firebase Admin
-if (!admin.apps || !admin.apps.length) {
+if (!getApps().length) {
   try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
     } else {
       const serviceAccount = require('../serviceAccountKey.json');
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      initializeApp({
+        credential: cert(serviceAccount)
       });
     }
   } catch (err) {
@@ -19,9 +20,8 @@ if (!admin.apps || !admin.apps.length) {
   }
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
-// Заменили export default на module.exports
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
       if (userId) {
         await db.collection('users').doc(userId).set({
           isPremium: true,
-          subscribedAt: admin.firestore.FieldValue.serverTimestamp(),
+          subscribedAt: FieldValue.serverTimestamp(),
           subscriptionPeriod: subscriptionPeriod,
           paymentId: payment.id,
           amount: payment.amount ? payment.amount.value : null
