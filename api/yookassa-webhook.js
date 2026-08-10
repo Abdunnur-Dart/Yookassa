@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-
+//jj
 // Инициализируем Firebase Admin
 if (!admin.apps.length) {
   try {
