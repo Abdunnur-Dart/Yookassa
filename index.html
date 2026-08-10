@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>поддержка разработчику</title>
+    <!-- CHANGED -->
+    <title>Оформление подписки</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -28,61 +29,49 @@
         .price-box { margin: 20px 0; font-size: 18px; color: #444; }
         
         .amount-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .amount-btn { padding: 8px 12px; border: 1px solid #ff8c00; background: white; color: #ff8c00; border-radius: 5px; cursor: pointer; }
+        .amount-btn { padding: 10px 16px; border: 1px solid #ff8c00; background: white; color: #ff8c00; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .amount-btn.active { background: #ff8c00; color: white; }
-        
-        /* NEW: Стили для новых полей */
-        .input-group { margin-bottom: 15px; text-align: left; }
-        .input-group label { display: block; font-size: 14px; margin-bottom: 5px; color: #666; }
-        input[type="number"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        /* END NEW */
 
         .price { font-weight: bold; color: #28a745; }
-        button { width: 100%; padding: 12px; background-color: #ff8c00; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        button:hover:not(:disabled) { background-color: #e07b00; }
+        button#payButton { width: 100%; padding: 12px; background-color: #ff8c00; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button#payButton:disabled { background-color: #cccccc; cursor: not-allowed; }
+        button#payButton:hover:not(:disabled) { background-color: #e07b00; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>поддержка разработчику</h2>
+        <!-- CHANGED -->
+        <h2>Оформление подписки</h2>
         
+        <!-- NEW: Выбор тарифного плана подписки -->
         <div class="amount-selector">
-            <button class="amount-btn" data-amount="49.99">49.99</button>
-            <button class="amount-btn" data-amount="100.00">100</button>
-            <button class="amount-btn" data-amount="500.00">500</button>
-            <input type="number" id="customAmount" placeholder="Своя сумма">
+            <button class="amount-btn active" data-amount="199.00" data-period="1_month">1 месяц</button>
+            <button class="amount-btn" data-amount="990.00" data-period="1_year">1 год</button>
         </div>
-
-        <!-- NEW: Поля для имени и сообщения -->
-        <div class="input-group">
-            <label>Ваше имя</label>
-            <input type="text" id="donorName" placeholder="Введите имя">
-        </div>
-        <div class="input-group">
-            <label>Сообщение</label>
-            <input type="text" id="donorMessage" placeholder="Ваше пожелание">
-        </div>
-        <!-- END NEW -->
         
         <div class="price-box">
-            поддержка разработчика за <span class="price" id="displayAmount">49.99</span> ₽
+            <!-- CHANGED -->
+            Стоимость подписки: <span class="price" id="displayAmount">199.00</span> ₽
         </div>
 
-        <button id="payButton">поддержать разработчика</button>
+        <!-- CHANGED -->
+        <button id="payButton">Оформить подписку</button>
     </div>
 
     <script>
         const payButton = document.getElementById('payButton');
-        const customAmount = document.getElementById('customAmount');
         const displayAmount = document.getElementById('displayAmount');
-        let currentAmount = "49.99";
+        let currentAmount = "199.00";
+        let currentPeriod = "1_month";
 
-        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        // NEW: Извлечение user_id из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user_id') || "";
 
-        function updateSelection(amount, clickedElement = null) {
+        function updateSelection(amount, period, clickedElement) {
             currentAmount = amount;
+            currentPeriod = period;
             displayAmount.textContent = amount;
             document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
             if (clickedElement) clickedElement.classList.add('active');
@@ -90,22 +79,23 @@
 
         document.querySelectorAll('.amount-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                updateSelection(btn.getAttribute('data-amount'), btn);
-                customAmount.value = '';
+                updateSelection(
+                    btn.getAttribute('data-amount'), 
+                    btn.getAttribute('data-period'), 
+                    btn
+                );
             });
         });
 
-        customAmount.addEventListener('input', () => {
-            if (customAmount.value > 0) updateSelection(customAmount.value);
-        });
-
         payButton.addEventListener('click', async () => {
-            // NEW: Собираем данные из новых полей
-            const donorName = document.getElementById('donorName').value || "Аноним";
-            const donorMessage = document.getElementById('donorMessage').value || "";
+            if (!userId) {
+                alert('Ошибка: пользователь не идентифицирован. Авторизуйтесь в приложении.');
+                return;
+            }
 
             payButton.disabled = true;
-            payButton.textContent = "Создание платежа...";
+            // CHANGED
+            payButton.textContent = "Создание подписки...";
 
             try {
                 const response = await fetch('/api/pay', {
@@ -113,11 +103,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         amount: currentAmount,
-                        description: "поддержка разработчика",
-                        // NEW: Передаем данные в метаданные для ЮKassa
+                        // CHANGED
+                        description: `Подписка на приложение (${currentPeriod})`,
                         metadata: {
-                            donor_name: donorName,
-                            donor_message: donorMessage
+                            // NEW: Важные метаданные для привязки подписки
+                            user_id: userId,
+                            subscription_period: currentPeriod,
+                            is_subscription: true
                         },
                         returnUrl: "https://yookassaproj201514.vercel.app/success"
                     })
@@ -130,13 +122,15 @@
                 } else {
                     alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
                     payButton.disabled = false;
-                    payButton.textContent = "поддержать разработчика";
+                    // CHANGED
+                    payButton.textContent = "Оформить подписку";
                 }
             } catch (error) {
                 console.error('Ошибка сети:', error);
                 alert('Ошибка соединения.');
                 payButton.disabled = false;
-                payButton.textContent = "поддержать разработчика";
+                // CHANGED
+                payButton.textContent = "Оформить подписку";
             }
         });
     </script>
