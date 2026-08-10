@@ -11,7 +11,8 @@ module.exports = async (req, res) => {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { amount, description } = req.body;
+    // 1. ИЗВЛЕКАЕМ metadata ИЗ ТЕЛА ЗАПРОСА
+    const { amount, description, metadata } = req.body;
 
     const shopId = process.env.YOOKASSA_SHOP_ID;
     const secretKey = process.env.YOOKASSA_SECRET_KEY;
@@ -22,8 +23,6 @@ module.exports = async (req, res) => {
 
     try {
         const idempotenceKey = Math.random().toString(36).substring(2);
-        
-        // Генерируем уникальный ID заказа для этой сессии оплаты
         const orderId = 'ord_' + Math.random().toString(36).substring(2, 12);
 
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
@@ -35,16 +34,17 @@ module.exports = async (req, res) => {
             },
             body: JSON.stringify({
                 amount: {
-                    value: amount || "49.99",
+                    value: amount || "199.00",
                     currency: "RUB"
                 },
                 capture: true,
                 confirmation: {
                     type: 'redirect',
-                    // Передаем order_id прямо в ссылке возврата ЮKassa
                     return_url: `https://yookassaproj201514.vercel.app/success?order_id=${orderId}`
                 },
-                description: description || "поддержка разработчика"
+                description: description || "Подписка на сервис",
+                // 2. ПЕРЕДАЕМ metadata В ЮKASSA
+                metadata: metadata || {}
             })
         });
 
