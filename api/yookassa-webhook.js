@@ -1,9 +1,8 @@
 const admin = require('firebase-admin');
-//jj
-// Инициализируем Firebase Admin
-if (!admin.apps.length) {
+
+// Безопасная инициализация Firebase Admin
+if (!admin.apps || !admin.apps.length) {
   try {
-    // Поддержка ключа через переменные окружения Vercel или локальный файл
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       admin.initializeApp({
@@ -22,7 +21,8 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-export default async function handler(req, res) {
+// Заменили export default на module.exports
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -32,12 +32,11 @@ export default async function handler(req, res) {
 
     if (event && event.type === 'payment.succeeded') {
       const payment = event.object;
-      
+
       const userId = payment.metadata ? payment.metadata.user_id : null;
       const subscriptionPeriod = payment.metadata ? payment.metadata.subscription_period : '1_month';
 
       if (userId) {
-        // Обновляем статус пользователя в Firestore
         await db.collection('users').doc(userId).set({
           isPremium: true,
           subscribedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -52,10 +51,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Всегда возвращаем 200 для ЮKassa
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
     console.error('Ошибка при обработке Webhook ЮKassa:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
-}
+};
