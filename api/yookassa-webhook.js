@@ -61,9 +61,10 @@ module.exports = async (req, res) => {
         }                                                  // NEW
 
         // Записываем флаг премиума в коллекцию пользователей
-        // CHANGED: Добавлено сохранение поля expiresAt
+        // CHANGED: Добавлено сохранение автопродления autoRenew и даты expiresAt
         await userRef.set({
           isPremium: true,
+          autoRenew: true, // NEW: При покупке подписки автопродление включено по умолчанию
           subscriptionPeriod: period,
           premiumPurchasedAt: FieldValue.serverTimestamp(),
           expiresAt: Timestamp.fromDate(expiresAt), // CHANGED: Запись корректной даты окончания подписки
