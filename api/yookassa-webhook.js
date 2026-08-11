@@ -1,14 +1,15 @@
-const admin = require('firebase-admin');
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
-// 1. Безопасная инициализация Firebase Admin
-if (!admin.apps.length) {
+// Инициализация Firebase Admin без обращения к admin.apps
+if (!getApps().length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
       ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
       : undefined;
 
-    admin.initializeApp({
-      credential: admin.credential.cert({
+    initializeApp({
+      credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: privateKey,
@@ -20,7 +21,6 @@ if (!admin.apps.length) {
 }
 
 module.exports = async (req, res) => {
-  // Разрешаем только POST запросы от ЮKassa
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -28,30 +28,28 @@ module.exports = async (req, res) => {
   try {
     const event = req.body;
 
-    // 2. Обрабатываем событие успешной оплаты
     if (event && event.event === 'payment.succeeded') {
       const payment = event.object;
       const userId = payment.metadata?.user_id;
       const period = payment.metadata?.subscription_period || '1_month';
 
       if (userId) {
-        const db = admin.firestore();
+        const db = getFirestore();
 
-        // 3. Записываем премиум статус прямо в документ пользователя
+        // Записываем флаг премиума в коллекцию пользователей
         await db.collection('users').doc(userId).set({
           isPremium: true,
           subscriptionPeriod: period,
-          premiumPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
+          premiumPurchasedAt: FieldValue.serverTimestamp(),
           paymentId: payment.id,
         }, { merge: true });
 
-        console.log(`✅ Премиум успешно активирован для UID: ${userId}`);
+        console.log(`✅ Премиум активирован для UID: ${userId}`);
       } else {
         console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
     }
 
-    // Возвращаем ЮKassa статус 200 OK
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
     console.error('❌ Ошибка при обработке вебхука:', error);
