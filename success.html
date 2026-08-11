@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Квитанция об оплате</title>
+    <title>Оплата успешна!</title>
     <style>
-        /* Базовые стили и сброс */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -18,7 +17,6 @@
             background: linear-gradient(135deg, #eef2f5 0%, #e4e9ed 100%);
         }
 
-        /* Анимация появления чека */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -30,7 +28,6 @@
             }
         }
 
-        /* Карточка чека */
         .receipt-card {
             background: #fffdf9;
             padding: 35px 30px 25px 30px;
@@ -42,9 +39,9 @@
             border-bottom: 5px solid #fffdf9;
             border-radius: 12px 12px 0 0;
             animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+            text-align: center;
         }
 
-        /* Эффект зубчатого края чека снизу */
         .receipt-card::after {
             content: "";
             position: absolute;
@@ -57,7 +54,6 @@
             background-size: 16px 20px;
         }
 
-        /* Иконка успеха */
         .success-icon {
             display: block;
             margin: 0 auto 15px auto;
@@ -66,21 +62,33 @@
 
         h2 {
             color: #0f172a;
-            text-align: center;
             margin: 0 0 8px 0;
             font-size: 24px;
             font-weight: 700;
         }
 
         .subtitle {
-            text-align: center;
             color: #64748b;
             font-size: 14px;
-            margin: 0 0 25px 0;
+            margin: 0 0 15px 0;
             line-height: 1.4;
         }
 
-        /* Блок с деталями (имитация кассовой ленты) */
+        .redirect-status {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
         .receipt-details {
             border-top: 2px dashed #cbd5e1;
             border-bottom: 2px dashed #cbd5e1;
@@ -89,6 +97,7 @@
             font-family: 'Courier New', Courier, monospace;
             font-size: 14px;
             color: #334155;
+            text-align: left;
         }
 
         .receipt-row {
@@ -107,7 +116,7 @@
         .receipt-row span:last-child {
             font-weight: bold;
             text-align: right;
-            word-break: break-all; /* Защита от переполнения длинными ID */
+            word-break: break-all;
             max-width: 65%;
         }
 
@@ -116,7 +125,6 @@
             font-weight: bold;
         }
 
-        /* Итоговая сумма */
         .total {
             font-size: 18px;
             font-weight: bold;
@@ -126,9 +134,8 @@
             color: #0f172a;
         }
 
-        /* Кнопка */
         .home-btn {
-            background-color: #4f46e5;
+            background-color: #ff8c00;
             color: white;
             border: none;
             padding: 14px 20px;
@@ -142,12 +149,12 @@
             justify-content: center;
             gap: 8px;
             transition: background-color 0.2s, transform 0.1s;
-            margin-top: 30px;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+            margin-top: 25px;
+            box-shadow: 0 4px 12px rgba(255, 140, 0, 0.2);
         }
 
         .home-btn:hover {
-            background-color: #4338ca;
+            background-color: #e07b00;
         }
 
         .home-btn:active {
@@ -158,18 +165,22 @@
 <body>
 
     <article class="receipt-card">
-        <!-- SVG Иконка успешной оплаты -->
         <svg class="success-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
             <polyline points="22 4 12 14.01 9 11.01"></polyline>
         </svg>
 
         <h2>Оплата успешна!</h2>
-        <p class="subtitle">Спасибо за поддержку разработчика</p>
+        <p class="subtitle">Спасибо за приобретение подписки</p>
+
+        <!-- Блок информирования о перенаправлении -->
+        <div class="redirect-status">
+            <span>Перенаправляем в приложение через <span id="countdown">3</span> сек...</span>
+        </div>
         
         <section class="receipt-details">
             <div class="receipt-row">
-                <span>№ чека:</span>
+                <span>№ заказа:</span>
                 <span id="receiptId">Загрузка...</span>
             </div>
             <div class="receipt-row">
@@ -178,7 +189,7 @@
             </div>
             <div class="receipt-row">
                 <span>Услуга:</span>
-                <span>поддержка проекта</span>
+                <span>Премиум подписка</span>
             </div>
             <div class="receipt-row">
                 <span>Статус:</span>
@@ -186,38 +197,79 @@
             </div>
             <div class="receipt-row total">
                 <span>Итого:</span>
-                <span>49.99 RUB</span>
+                <span id="receiptAmount">199.00 RUB</span>
             </div>
         </section>
 
-        <a href="#" class="home-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            На главную
+        <!-- Кнопка ручного возврата в приложение -->
+        <a href="javascript:void(0);" id="appLink" class="home-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Вернуться в приложение
         </a>
     </article>
 
     <script>
-        // Ищем параметр order_id из URL страницы
+        // 1. Считываем параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
-        const realOrderId = urlParams.get('order_id');
+        const orderId = urlParams.get('order_id');
+        const amount = urlParams.get('amount');
         const receiptIdElem = document.getElementById('receiptId');
+        const receiptAmountElem = document.getElementById('receiptAmount');
 
-        if (realOrderId) {
-            receiptIdElem.textContent = realOrderId;
-            
-            // Если ID слишком длинный, уменьшаем шрифт
-            if (realOrderId.length > 15) {
+        if (orderId) {
+            receiptIdElem.textContent = orderId;
+            if (orderId.length > 15) {
                 receiptIdElem.style.fontSize = '12px'; 
             }
         } else {
-            // Запасной случайный номер на случай, если зашли без параметра
-            receiptIdElem.textContent = '#T-' + Math.floor(100000 + Math.random() * 900000);
+            receiptIdElem.textContent = '#ORD-' + Math.floor(100000 + Math.random() * 900000);
         }
 
-        // Генерируем актуальную дату и время оплаты
+        if (amount) {
+            receiptAmountElem.textContent = `${amount} RUB`;
+        }
+
+        // 2. Устанавливаем текущую дату
         const now = new Date();
         const formattedDate = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         document.getElementById('receiptDate').textContent = formattedDate;
+
+        // 3. Настройка Deep Link редиректа в приложение
+        // Замените "mualim://" на вашу схему диплинка во Flutter (или универсальную ссылку), если она есть
+        const appDeepLink = "mualim://success"; 
+        const appLinkBtn = document.getElementById('appLink');
+
+        function openApp() {
+            // Попытка открыть приложение через Deep Link
+            window.location.href = appDeepLink;
+
+            // Если открыто во встроенном WebView на мобильном устройстве, пытаемся закрыть вкладку
+            setTimeout(() => {
+                if (window.history.length > 1) {
+                    window.history.back();
+                }
+            }, 1000);
+        }
+
+        appLinkBtn.addEventListener('click', openApp);
+
+        // 4. Логика обратного отсчета
+        let secondsLeft = 3;
+        const countdownElem = document.getElementById('countdown');
+
+        const timer = setInterval(() => {
+            secondsLeft--;
+            if (countdownElem) countdownElem.textContent = secondsLeft;
+
+            if (secondsLeft <= 0) {
+                clearInterval(timer);
+                openApp();
+            }
+        }, 1000);
     </script>
 
 </body>
