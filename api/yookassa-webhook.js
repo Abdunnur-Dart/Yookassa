@@ -32,6 +32,7 @@ module.exports = async (req, res) => {
       const payment = event.object;
       const userId = payment.metadata?.user_id;
       const period = payment.metadata?.subscription_period || '1_month';
+      const paymentMethodId = payment.payment_method?.id; // NEW: Сохранение токена карты
 
       if (userId) {
         const db = getFirestore();
@@ -69,6 +70,7 @@ module.exports = async (req, res) => {
           premiumPurchasedAt: FieldValue.serverTimestamp(),
           expiresAt: Timestamp.fromDate(expiresAt), // CHANGED: Запись корректной даты окончания подписки
           paymentId: payment.id,
+          paymentMethodId: paymentMethodId || null, // NEW: Метод платежа для рекуррентных списаний
         }, { merge: true });
 
         console.log(`✅ Премиум активирован для UID: ${userId} до ${expiresAt.toISOString()}`); // CHANGED
