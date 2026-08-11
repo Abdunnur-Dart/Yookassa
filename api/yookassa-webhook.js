@@ -1,5 +1,6 @@
-import admin from 'firebase-admin';
+const admin = require('firebase-admin');
 
+// 1. Безопасная инициализация Firebase Admin
 if (!admin.apps.length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -14,27 +15,29 @@ if (!admin.apps.length) {
       }),
     });
   } catch (err) {
-    console.error('Firebase admin initialization error:', err);
+    console.error('Firebase initialization error:', err);
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
+  // Разрешаем только POST запросы от ЮKassa
   if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
     const event = req.body;
 
-    if (event.event === 'payment.succeeded') {
+    // 2. Обрабатываем событие успешной оплаты
+    if (event && event.event === 'payment.succeeded') {
       const payment = event.object;
       const userId = payment.metadata?.user_id;
       const period = payment.metadata?.subscription_period || '1_month';
 
       if (userId) {
         const db = admin.firestore();
-        
-        // Обновляем статус в базе
+
+        // 3. Записываем премиум статус прямо в документ пользователя
         await db.collection('users').doc(userId).set({
           isPremium: true,
           subscriptionPeriod: period,
@@ -42,15 +45,16 @@ export default async function handler(req, res) {
           paymentId: payment.id,
         }, { merge: true });
 
-        console.log(`✅ Успех: Премиум активирован для UID ${userId}`);
+        console.log(`✅ Премиум успешно активирован для UID: ${userId}`);
       } else {
         console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
     }
 
+    // Возвращаем ЮKassa статус 200 OK
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('❌ Ошибка в обработчике Webhook:', error);
-    return res.status(500).send('Internal Server Error');
+    console.error('❌ Ошибка при обработке вебхука:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
-}
+};
