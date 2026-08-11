@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/success", "destination": "/success.html" }
-  ]
+  ],
   "crons": [
     {
       "path": "/api/check-subscriptions",
