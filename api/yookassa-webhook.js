@@ -1,59 +1,50 @@
-const { initializeApp, cert, getApps } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+// api/yookassa-webhook.js
+import admin from 'firebase-admin';
 
-// Безопасная инициализация Firebase Admin
-if (!getApps().length) {
-  try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      initializeApp({
-        credential: cert(serviceAccount)
-      });
-    } else {
-      const serviceAccount = require('../serviceAccountKey.json');
-      initializeApp({
-        credential: cert(serviceAccount)
-      });
-    }
-  } catch (err) {
-    console.error('Ошибка инициализации Firebase Admin:', err);
-  }
+// Инициализация Firebase Admin (требуются сервисные ключи)
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    }),
+  });
 }
 
-const db = getFirestore();
+const db = admin.firestore();
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).send('Method Not Allowed');
   }
 
   try {
     const event = req.body;
 
-    if (event && event.type === 'payment.succeeded') {
+    // Проверяем статус успешной оплаты от ЮKassa
+    if (event.event === 'payment.succeeded') {
       const payment = event.object;
-
-      const userId = payment.metadata ? payment.metadata.user_id : null;
-      const subscriptionPeriod = payment.metadata ? payment.metadata.subscription_period : '1_month';
+      
+      // Достаем user_id, который передавали в metadata при создании платежа
+      const userId = payment.metadata?.user_id;
 
       if (userId) {
+        // Безопасно обновляем статус подписки пользователя в Firestore
         await db.collection('users').doc(userId).set({
           isPremium: true,
-          subscribedAt: FieldValue.serverTimestamp(),
-          subscriptionPeriod: subscriptionPeriod,
+          premiumPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
           paymentId: payment.id,
-          amount: payment.amount ? payment.amount.value : null
         }, { merge: true });
 
-        console.log(`Успешно активирована подписка для UID: ${userId}`);
-      } else {
-        console.warn('Получен платеж без user_id в metadata:', payment.id);
+        console.log(`Подписка успешно активирована для UID: ${userId}`);
       }
     }
 
+    // Возвращаем ЮKassa HTTP 200 OK, чтобы подтвердить получение webhook
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('Ошибка при обработке Webhook ЮKassa:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Ошибка обработки Webhook:', error);
+    return res.status(500).send('Internal Server Error');
   }
-};
+}
