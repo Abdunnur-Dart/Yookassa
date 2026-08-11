@@ -34,6 +34,7 @@ module.exports = async (req, res) => {
                     currency: "RUB"
                 },
                 capture: true,
+                save_payment_method: true, // NEW: Запрос на сохранение платежного метода для повторных списаний
                 confirmation: {
                     type: 'redirect',
                     // Используем переданный URL или дефолтный корень сайта
