@@ -24,10 +24,11 @@ export default async function handler(req, res) {
   try {
     const now = new Date();
 
-    // Находим всех пользователей, у кого подписка активна, но дата окончания уже прошла
+    // CHANGED: Ищем подписки, где автопродление отменено (autoRenew == false) и дата окончания прошла
     const snapshot = await db
       .collection('users')
       .where('isPremium', '==', true)
+      .where('autoRenew', '==', false) // NEW: Аннулируем только отмененные подписки
       .where('expiresAt', '<=', now)
       .get();
 
@@ -35,19 +36,28 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'Нет истекших подписок.' });
     }
 
-    const batch = db.batch();
+    // NEW: Безопасное разбиение на чанки (лимит Firestore — 500 операций в batch)
+    const BATCH_LIMIT = 400; // NEW
+    const docs = snapshot.docs; // NEW
+    let processedCount = 0; // NEW
 
-    snapshot.docs.forEach((doc) => {
-      batch.update(doc.ref, {
-        isPremium: false,
-        updatedAt: now,
+    for (let i = 0; i < docs.length; i += BATCH_LIMIT) { // NEW
+      const chunk = docs.slice(i, i + BATCH_LIMIT); // NEW
+      const batch = db.batch(); // CHANGED
+
+      chunk.forEach((doc) => { // CHANGED
+        batch.update(doc.ref, {
+          isPremium: false,
+          updatedAt: now,
+        });
       });
-    });
 
-    await batch.commit();
+      await batch.commit(); // NEW
+      processedCount += chunk.length; // NEW
+    } // NEW
 
     return res.status(200).json({
-      message: `Успешно отключено подписок: ${snapshot.size}`,
+      message: `Успешно отключено подписок: ${processedCount}`, // CHANGED
     });
   } catch (error) {
     console.error('Ошибка сброса подписок:', error);
