@@ -1,5 +1,5 @@
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore'); // CHANGED: Добавлен Timestamp
 
 // Инициализация Firebase Admin без обращения к admin.apps
 if (!getApps().length) {
@@ -36,15 +36,41 @@ module.exports = async (req, res) => {
       if (userId) {
         const db = getFirestore();
 
+        const userRef = db.collection('users').doc(userId); // NEW: Ссылка на документ пользователя
+        const userDoc = await userRef.get();                // NEW: Получение текущих данных пользователя
+
+        const now = new Date();                            // NEW: Текущее время
+        let baseDate = now;                                // NEW: Точка отсчета подписки
+
+        // NEW: Если подписка еще активна, продлеваем с момента ее окончания
+        if (userDoc.exists) {                              // NEW
+          const data = userDoc.data();                     // NEW
+          if (data.isPremium && data.expiresAt) {          // NEW
+            const currentExpiresAt = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt); // NEW
+            if (currentExpiresAt > now) {                  // NEW
+              baseDate = currentExpiresAt;                 // NEW
+            }
+          }
+        }
+
+        const expiresAt = new Date(baseDate);              // NEW: Расчет итоговой даты
+        if (period === '1_year') {                         // NEW
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1); // NEW
+        } else {                                           // NEW
+          expiresAt.setMonth(expiresAt.getMonth() + 1);    // NEW
+        }                                                  // NEW
+
         // Записываем флаг премиума в коллекцию пользователей
-        await db.collection('users').doc(userId).set({
+        // CHANGED: Добавлено сохранение поля expiresAt
+        await userRef.set({
           isPremium: true,
           subscriptionPeriod: period,
           premiumPurchasedAt: FieldValue.serverTimestamp(),
+          expiresAt: Timestamp.fromDate(expiresAt), // CHANGED: Запись корректной даты окончания подписки
           paymentId: payment.id,
         }, { merge: true });
 
-        console.log(`✅ Премиум активирован для UID: ${userId}`);
+        console.log(`✅ Премиум активирован для UID: ${userId} до ${expiresAt.toISOString()}`); // CHANGED
       } else {
         console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
