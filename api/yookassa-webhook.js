@@ -1,18 +1,22 @@
-// api/yookassa-webhook.js
 import admin from 'firebase-admin';
 
-// Инициализация Firebase Admin (требуются сервисные ключи)
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    }),
-  });
-}
+  try {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY
+      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : undefined;
 
-const db = admin.firestore();
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      }),
+    });
+  } catch (err) {
+    console.error('Firebase admin initialization error:', err);
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,29 +26,31 @@ export default async function handler(req, res) {
   try {
     const event = req.body;
 
-    // Проверяем статус успешной оплаты от ЮKassa
     if (event.event === 'payment.succeeded') {
       const payment = event.object;
-      
-      // Достаем user_id, который передавали в metadata при создании платежа
       const userId = payment.metadata?.user_id;
+      const period = payment.metadata?.subscription_period || '1_month';
 
       if (userId) {
-        // Безопасно обновляем статус подписки пользователя в Firestore
+        const db = admin.firestore();
+        
+        // Обновляем статус в базе
         await db.collection('users').doc(userId).set({
           isPremium: true,
+          subscriptionPeriod: period,
           premiumPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
           paymentId: payment.id,
         }, { merge: true });
 
-        console.log(`Подписка успешно активирована для UID: ${userId}`);
+        console.log(`✅ Успех: Премиум активирован для UID ${userId}`);
+      } else {
+        console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
     }
 
-    // Возвращаем ЮKassa HTTP 200 OK, чтобы подтвердить получение webhook
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('Ошибка обработки Webhook:', error);
+    console.error('❌ Ошибка в обработчике Webhook:', error);
     return res.status(500).send('Internal Server Error');
   }
 }
