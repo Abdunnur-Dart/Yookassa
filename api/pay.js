@@ -1,3 +1,5 @@
+const crypto = require('crypto'); // NEW: Модуль для безопасной генерации UUID
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -17,7 +19,7 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const idempotenceKey = Math.random().toString(36).substring(2);
+        const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2); // CHANGED: Стабильная генерация ключа идемпотентности
 
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
             method: 'POST',
