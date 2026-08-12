@@ -1,7 +1,6 @@
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
-const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore'); // CHANGED: Добавлен Timestamp
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 
-// Инициализация Firebase Admin без обращения к admin.apps
 if (!getApps().length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -31,49 +30,57 @@ module.exports = async (req, res) => {
     if (event && event.event === 'payment.succeeded') {
       const payment = event.object;
       const userId = payment.metadata?.user_id;
-      const period = payment.metadata?.subscription_period || '1_month';
-      const paymentMethodId = payment.payment_method?.id; // NEW: Сохранение токена карты
+      const period = payment.metadata?.subscription_period || 'one_time';
+      const paymentMethodId = payment.payment_method?.id;
 
       if (userId) {
         const db = getFirestore();
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
 
-        const userRef = db.collection('users').doc(userId); // NEW: Ссылка на документ пользователя
-        const userDoc = await userRef.get();                // NEW: Получение текущих данных пользователя
+        const now = new Date();
+        let baseDate = now;
 
-        const now = new Date();                            // NEW: Текущее время
-        let baseDate = now;                                // NEW: Точка отсчета подписки
-
-        // NEW: Если подписка еще активна, продлеваем с момента ее окончания
-        if (userDoc.exists) {                              // NEW
-          const data = userDoc.data();                     // NEW
-          if (data.isPremium && data.expiresAt) {          // NEW
-            const currentExpiresAt = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt); // NEW
-            if (currentExpiresAt > now) {                  // NEW
-              baseDate = currentExpiresAt;                 // NEW
+        if (userDoc.exists) {
+          const data = userDoc.data();
+          if (data.isPremium && data.expiresAt) {
+            const currentExpiresAt = data.expiresAt.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt);
+            if (currentExpiresAt > now) {
+              baseDate = currentExpiresAt;
             }
           }
         }
 
-        const expiresAt = new Date(baseDate);              // NEW: Расчет итоговой даты
-        if (period === '1_year') {                         // NEW
-          expiresAt.setFullYear(expiresAt.getFullYear() + 1); // NEW
-        } else {                                           // NEW
-          expiresAt.setMonth(expiresAt.getMonth() + 1);    // NEW
-        }                                                  // NEW
+        let expiresAt = null;
+        let isLifetime = false;
 
-        // Записываем флаг премиума в коллекцию пользователей
-        // CHANGED: Добавлено сохранение автопродления autoRenew и даты expiresAt
+        // Логика расчета периода
+        if (period === 'lifetime' || period === 'one_time_forever') {
+          isLifetime = true;
+        } else if (period === '1_year') {
+          expiresAt = new Date(baseDate);
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        } else if (period === '1_month') {
+          expiresAt = new Date(baseDate);
+          expiresAt.setMonth(expiresAt.getMonth() + 1);
+        } else {
+          // По умолчанию разовый доступ на 30 дней
+          expiresAt = new Date(baseDate);
+          expiresAt.setDate(expiresAt.getDate() + 30);
+        }
+
         await userRef.set({
           isPremium: true,
-          autoRenew: true, // NEW: При покупке подписки автопродление включено по умолчанию
+          autoRenew: false, // Для разовых покупок всегда false
+          isLifetime: isLifetime,
           subscriptionPeriod: period,
           premiumPurchasedAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromDate(expiresAt), // CHANGED: Запись корректной даты окончания подписки
+          expiresAt: expiresAt ? Timestamp.fromDate(expiresAt) : null,
           paymentId: payment.id,
-          paymentMethodId: paymentMethodId || null, // NEW: Метод платежа для рекуррентных списаний
+          paymentMethodId: paymentMethodId || null,
         }, { merge: true });
 
-        console.log(`✅ Премиум активирован для UID: ${userId} до ${expiresAt.toISOString()}`); // CHANGED
+        console.log(`✅ Разовый Премиум активирован для UID: ${userId}`);
       } else {
         console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
