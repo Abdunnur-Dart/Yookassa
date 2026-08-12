@@ -1,4 +1,4 @@
-const crypto = require('crypto'); // NEW: Модуль для безопасной генерации UUID
+const crypto = require('crypto');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -8,8 +8,7 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    // Добавляем returnUrl из req.body
-    const { amount, description, metadata, returnUrl } = req.body;
+    const { amount, description, metadata, returnUrl, isOneTime } = req.body;
 
     const shopId = process.env.YOOKASSA_SHOP_ID;
     const secretKey = process.env.YOOKASSA_SECRET_KEY;
@@ -19,7 +18,10 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2); // CHANGED: Стабильная генерация ключа идемпотентности
+        const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+
+        // Если это разовая покупка — НЕ сохраняем платежный метод
+        const savePaymentMethod = isOneTime === true ? false : true;
 
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
             method: 'POST',
@@ -34,13 +36,12 @@ module.exports = async (req, res) => {
                     currency: "RUB"
                 },
                 capture: true,
-                save_payment_method: true, // NEW: Запрос на сохранение платежного метода для повторных списаний
+                save_payment_method: savePaymentMethod,
                 confirmation: {
                     type: 'redirect',
-                    // Используем переданный URL или дефолтный корень сайта
-                    return_url: returnUrl || 'https://yookassaproj201514.vercel.app/' 
+                    return_url: returnUrl || 'https://yookassaproj201514.vercel.app/'
                 },
-                description: description || "Подписка на сервис",
+                description: description || "Разовая покупка доступ к сервису",
                 metadata: metadata || {}
             })
         });
