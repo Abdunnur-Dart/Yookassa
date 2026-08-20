@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     if (event && event.event === 'payment.succeeded') {
       const payment = event.object;
       const userId = payment.metadata?.user_id;
-      const period = payment.metadata?.subscription_period || 'one_time';
+      const period = payment.metadata?.subscription_period || 'lifetime';
       const paymentMethodId = payment.payment_method?.id;
 
       if (userId) {
@@ -54,9 +54,9 @@ module.exports = async (req, res) => {
         let expiresAt = null;
         let isLifetime = false;
 
-        // Логика расчета периода
         if (period === 'lifetime' || period === 'one_time_forever') {
           isLifetime = true;
+          expiresAt = null; // У вечного доступа нет срока истечения
         } else if (period === '1_year') {
           expiresAt = new Date(baseDate);
           expiresAt.setFullYear(expiresAt.getFullYear() + 1);
@@ -64,14 +64,13 @@ module.exports = async (req, res) => {
           expiresAt = new Date(baseDate);
           expiresAt.setMonth(expiresAt.getMonth() + 1);
         } else {
-          // По умолчанию разовый доступ на 30 дней
           expiresAt = new Date(baseDate);
           expiresAt.setDate(expiresAt.getDate() + 30);
         }
 
         await userRef.set({
           isPremium: true,
-          autoRenew: false, // Для разовых покупок всегда false
+          autoRenew: false,
           isLifetime: isLifetime,
           subscriptionPeriod: period,
           premiumPurchasedAt: FieldValue.serverTimestamp(),
@@ -80,7 +79,7 @@ module.exports = async (req, res) => {
           paymentMethodId: paymentMethodId || null,
         }, { merge: true });
 
-        console.log(`✅ Разовый Премиум активирован для UID: ${userId}`);
+        console.log(`✅ Премиум (${period}) успешно активирован для UID: ${userId}`);
       } else {
         console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
