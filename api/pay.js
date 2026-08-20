@@ -31,22 +31,26 @@ module.exports = async (req, res) => {
 
         const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
 
-        // Для разовой покупки НЕ сохраняем платежный метод
-        const savePaymentMethod = isOneTime === true ? false : true;
+        // Гарантируем, что для разовой/бессрочной покупки НЕ сохраняем карту
+        const period = metadata?.subscription_period || 'lifetime';
+        const isOneTimePayment = isOneTime === true || period === 'lifetime' || period === 'one_time';
 
         const paymentPayload = {
             amount: {
-                value: amount || "199.00",
+                value: amount || "499.00",
                 currency: "RUB"
             },
             capture: true,
-            save_payment_method: savePaymentMethod,
+            save_payment_method: !isOneTimePayment,
             confirmation: {
                 type: 'redirect',
                 return_url: returnUrl || 'https://yookassaproj201514.vercel.app/'
             },
-            description: description || "Разовая покупка",
-            metadata: metadata || {}
+            description: description || "Разовая покупка: Доступ Навсегда",
+            metadata: {
+                ...metadata,
+                subscription_period: period,
+            }
         };
 
         const response = await fetch('https://api.yookassa.ru/v3/payments', {
