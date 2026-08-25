@@ -1,71 +1,102 @@
-// Файл: api/create-payment.js (на сервере Vercel)
+const crypto = require('crypto');
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Метод не поддерживается' });
-  }
+module.exports = async (req, res) => {
+    // Настройка CORS
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
-  const { userId, productId, isWeb } = req.body;
-
-  // 1. Словарь цен ЖЕСТКО на сервере. Клиент не может изменить эти цифры.
-  const PRODUCTS = {
-    'lifetime_access': {
-      amount: '499.00',
-      description: 'Разовая покупка: Доступ Навсегда',
-    },
-  };
-
-  const product = PRODUCTS[productId];
-  if (!product) {
-    return res.status(400).json({ error: 'Неверный ID товара' });
-  }
-
-  // 2. Куда вернуть пользователя после оплаты
-  const returnUrl = isWeb
-    ? 'https://yookassaproj201514.vercel.app/'
-    : 'muallimsani://success';
-
-  // Ваши ключи ЮKassa (лучше занести в Environment Variables на Vercel)
-  const SHOP_ID = process.env.YOOKASSA_SHOP_ID; 
-  const SECRET_KEY = process.env.YOOKASSA_SECRET_KEY; 
-
-  try {
-    // 3. Сервер сам отправляет запрос в ЮKassa
-    const authHeader = Buffer.from(`${SHOP_ID}:${SECRET_KEY}`).toString('base64');
-    
-    const response = await fetch('https://api.yookassa.ru/v3/payments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${authHeader}`,
-        'Idempotency-Key': `${userId}_${Date.now()}`,
-      },
-      body: JSON.stringify({
-        amount: {
-          value: product.amount,
-          currency: 'RUB',
-        },
-        confirmation: {
-          type: 'redirect',
-          return_url: returnUrl,
-        },
-        capture: true,
-        description: product.description,
-        metadata: {
-          user_id: userId,
-          product_id: productId,
-        },
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.confirmation && data.confirmation.confirmation_url) {
-      return res.status(200).json({ confirmationUrl: data.confirmation.confirmation_url });
-    } else {
-      return res.status(500).json({ error: 'Не удалось получить ссылку от ЮKassa' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-}
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const { userId, productId, isWeb } = req.body || {};
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Missing userId' });
+        }
+
+        // Жесткий словарь цен на сервере (защита от изменения клиентом)
+        const PRODUCTS = {
+            'lifetime_access': {
+                amount: '499.00',
+                description: 'Разовая покупка: Доступ Навсегда',
+                period: 'lifetime'
+            },
+        };
+
+        const product = PRODUCTS[productId || 'lifetime_access'];
+        if (!product) {
+            return res.status(400).json({ error: 'Неверный ID товара' });
+        }
+
+        const shopId = process.env.YOOKASSA_SHOP_ID;
+        const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+        if (!shopId || !secretKey) {
+            console.error('YooKassa credentials missing');
+            return res.status(500).json({ error: 'YooKassa credentials not configured' });
+        }
+
+        const returnUrl = isWeb
+            ? 'https://yookassaproj201514.vercel.app/'
+            : 'muallimsani://success';
+
+        const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+
+        const paymentPayload = {
+            amount: {
+                value: product.amount,
+                currency: "RUB"
+            },
+            capture: true,
+            save_payment_method: false,
+            confirmation: {
+                type: 'redirect',
+                return_url: returnUrl
+            },
+            description: product.description,
+            metadata: {
+                user_id: userId,
+                product_id: productId || 'lifetime_access',
+                subscription_period: product.period,
+            }
+        };
+
+        const response = await fetch('https://api.yookassa.ru/v3/payments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64'),
+                'Idempotence-Key': idempotenceKey
+            },
+            body: JSON.stringify(paymentPayload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('YooKassa API Error:', data);
+            return res.status(response.status).json({ error: data.description || 'YooKassa error' });
+        }
+
+        // Возвращаем поле в формате, который ожидает ваш Flutter-клиент
+        return res.status(200).json({
+            confirmationUrl: data.confirmation.confirmation_url,
+            payment_id: data.id
+        });
+
+    } catch (error) {
+        console.error('Payment creation internal error:', error);
+        return res.status(500).json({ error: error.message || 'Internal server error' });
+    }
+};
