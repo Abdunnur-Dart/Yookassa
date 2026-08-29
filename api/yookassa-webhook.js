@@ -1,6 +1,7 @@
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 
+// Инициализация Firebase Admin SDK
 if (!getApps().length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -28,10 +29,35 @@ module.exports = async (req, res) => {
     const event = req.body;
 
     if (event && event.event === 'payment.succeeded') {
-      const payment = event.object;
-      const userId = payment.metadata?.user_id;
-      const period = payment.metadata?.subscription_period || 'lifetime';
-      const paymentMethodId = payment.payment_method?.id;
+      const paymentData = event.object;
+      const paymentId = paymentData?.id;
+
+      if (!paymentId) {
+        return res.status(400).json({ error: 'Payment ID missing' });
+      }
+
+      // ЗАЩИТА: Запрашиваем статус напрямую у ЮKassa API
+      const shopId = process.env.YOOKASSA_SHOP_ID;
+      const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+      const verifyResponse = await fetch(`https://api.yookassa.ru/v3/payments/${paymentId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64'),
+        },
+      });
+
+      const verifiedPayment = await verifyResponse.json();
+
+      // Проверяем реальный статус платежа на сервере ЮKassa
+      if (!verifyResponse.ok || verifiedPayment.status !== 'succeeded') {
+        console.error('❌ Попытка подделки вебхука! Платеж не подтвержден в ЮKassa:', verifiedPayment);
+        return res.status(400).json({ error: 'Payment verification failed' });
+      }
+
+      const userId = verifiedPayment.metadata?.user_id;
+      const period = verifiedPayment.metadata?.subscription_period || 'lifetime';
+      const paymentMethodId = verifiedPayment.payment_method?.id;
 
       if (userId) {
         const db = getFirestore();
@@ -75,7 +101,7 @@ module.exports = async (req, res) => {
           subscriptionPeriod: period,
           premiumPurchasedAt: FieldValue.serverTimestamp(),
           expiresAt: expiresAt ? Timestamp.fromDate(expiresAt) : null,
-          paymentId: payment.id,
+          paymentId: verifiedPayment.id,
           paymentMethodId: paymentMethodId || null,
         }, { merge: true });
 
