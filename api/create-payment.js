@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
         // Жесткий словарь цен на сервере (защита от изменения клиентом)
         const PRODUCTS = {
             'lifetime_access': {
-                amount: '499.00',
+                amount: '35.00',
                 description: 'Разовая покупка: Доступ Навсегда',
                 period: 'lifetime'
             },
