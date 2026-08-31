@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
 
         const paymentPayload = {
             amount: {
-                value: amount || "499.00",
+                value: amount || "35.00",
                 currency: "RUB"
             },
             capture: true,
