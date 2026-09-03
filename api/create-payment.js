@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { initializeApp, getApps, cert } = require('firebase-admin/app'); // NEW
 const { getAuth } = require('firebase-admin/auth'); // NEW
+const { getFirestore } = require('firebase-admin/firestore'); // NEW
 
 // Инициализация Firebase Admin для проверки ID-токена пользователя // NEW
 if (!getApps().length) { // NEW
@@ -28,7 +29,7 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
     res.setHeader(
         'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' // CHANGED - Добавлен Authorization
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
     );
 
     if (req.method === 'OPTIONS') {
@@ -40,34 +41,57 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Проверка авторизации Firebase ID Token // NEW
-        const authHeader = req.headers.authorization; // NEW
-        if (!authHeader || !authHeader.startsWith('Bearer ')) { // NEW
-            return res.status(401).json({ error: 'Необходима авторизация (Токен отсутствует)' }); // NEW
-        } // NEW
+        // Проверка авторизации Firebase ID Token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Необходима авторизация (Токен отсутствует)' });
+        }
 
-        const idToken = authHeader.split('Bearer ')[1]; // NEW
-        let decodedToken; // NEW
-        try { // NEW
-            decodedToken = await getAuth().verifyIdToken(idToken); // NEW
-        } catch (authError) { // NEW
-            console.error(' Ошибка проверки токена:', authError); // NEW
-            return res.status(401).json({ error: 'Недействительный токен авторизации' }); // NEW
-        } // NEW
+        const idToken = authHeader.split('Bearer ')[1];
+        let decodedToken;
+        try {
+            decodedToken = await getAuth().verifyIdToken(idToken);
+        } catch (authError) {
+            console.error(' Ошибка проверки токена:', authError);
+            return res.status(401).json({ error: 'Недействительный токен авторизации' });
+        }
 
-        const userId = decodedToken.uid; // CHANGED - Берем UID строго из проверенного токена!
+        const userId = decodedToken.uid;
         const { productId, isWeb } = req.body || {};
+        const targetProductId = productId || 'lifetime_access'; // CHANGED
 
-        // Жесткий словарь цен на сервере (защита от изменения клиентом)
-        const PRODUCTS = {
-            'lifetime_access': {
-                amount: '35.00',
-                description: 'Разовая покупка: Доступ Навсегда',
-                period: 'lifetime'
-            },
-        };
+        // --- ЗАПРУЦЕНА ЦЕНА ИЗ FIRESTORE (Production-ready с фоллбеком) --- // NEW
+        let product; // NEW
+        try { // NEW
+            const db = getFirestore(); // NEW
+            // Ищем товар в коллекции 'products' по его ID (например, документа 'lifetime_access') // NEW
+            const productDoc = await db.collection('products').doc(targetProductId).get(); // NEW
+            
+            if (productDoc.exists) { // NEW
+                const data = productDoc.data(); // NEW
+                product = { // NEW
+                    // Поддерживаем разные варианты названий полей в базе (amount / price) и приводим к строке // NEW
+                    amount: String(data.amount || data.price || '35.00'), // NEW
+                    description: data.description || 'Разовая покупка: Доступ Навсегда', // NEW
+                    period: data.period || data.subscription_period || 'lifetime' // NEW
+                }; // NEW
+            } // NEW
+        } catch (dbError) { // NEW
+            console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError); // NEW
+        } // NEW
 
-        const product = PRODUCTS[productId || 'lifetime_access'];
+        // Фоллбек на случай, если документ в Firestore не найден или база недоступна // NEW
+        if (!product) { // NEW
+            const PRODUCTS = {
+                'lifetime_access': {
+                    amount: '35.00',
+                    description: 'Разовая покупка: Доступ Навсегда',
+                    period: 'lifetime'
+                },
+            };
+            product = PRODUCTS[targetProductId]; // CHANGED
+        } // NEW
+
         if (!product) {
             return res.status(400).json({ error: 'Неверный ID товара' });
         }
@@ -100,7 +124,7 @@ module.exports = async (req, res) => {
             description: product.description,
             metadata: {
                 user_id: userId,
-                product_id: productId || 'lifetime_access',
+                product_id: targetProductId, // CHANGED
                 subscription_period: product.period,
             }
         };
@@ -111,8 +135,8 @@ module.exports = async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64'),
                 'Idempotence-Key': idempotenceKey
-            },
-            body: JSON.stringify(paymentPayload)
+          },
+          body: JSON.stringify(paymentPayload)
         });
 
         const data = await response.json();
