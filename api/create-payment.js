@@ -3,7 +3,6 @@ const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
 
-// Инициализация Firebase Admin для проверки ID-токена пользователя
 if (!getApps().length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -23,7 +22,6 @@ if (!getApps().length) {
 }
 
 module.exports = async (req, res) => {
-    // Настройка CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -41,7 +39,6 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // Проверка авторизации Firebase ID Token
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return res.status(401).json({ error: 'Необходима авторизация (Токен отсутствует)' });
@@ -60,7 +57,6 @@ module.exports = async (req, res) => {
         const { productId, isWeb } = req.body || {};
         const targetProductId = productId || 'lifetime_access';
 
-        // --- ЗАПРОС ЦЕНЫ ИЗ FIRESTORE ---
         let product;
         try {
             const db = getFirestore();
@@ -78,7 +74,6 @@ module.exports = async (req, res) => {
             console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError);
         }
 
-        // --- ФОЛЛБЕК СПИСОК ТОВАРОВ (Если в Firestore нет документа) ---
         if (!product) {
             const PRODUCTS = {
                 'lifetime_access': {
