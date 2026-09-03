@@ -1,7 +1,6 @@
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 
-// Инициализация Firebase Admin SDK
 if (!getApps().length) {
   try {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
@@ -36,7 +35,6 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Payment ID missing' });
       }
 
-      // ЗАЩИТА: Запрашиваем статус напрямую у ЮKassa API
       const shopId = process.env.YOOKASSA_SHOP_ID;
       const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
@@ -49,7 +47,6 @@ module.exports = async (req, res) => {
 
       const verifiedPayment = await verifyResponse.json();
 
-      // Проверяем реальный статус платежа на сервере ЮKassa
       if (!verifyResponse.ok || verifiedPayment.status !== 'succeeded') {
         console.error('❌ Попытка подделки вебхука! Платеж не подтвержден в ЮKassa:', verifiedPayment);
         return res.status(400).json({ error: 'Payment verification failed' });
@@ -82,11 +79,11 @@ module.exports = async (req, res) => {
 
         if (period === 'lifetime' || period === 'one_time_forever') {
           isLifetime = true;
-          expiresAt = null; // У вечного доступа нет срока истечения
-        } else if (period === '1_year') {
+          expiresAt = null;
+        } else if (period === '1_year' || period === 'sub_1_year') {
           expiresAt = new Date(baseDate);
           expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-        } else if (period === '1_month') {
+        } else if (period === '1_month' || period === 'sub_1_month') {
           expiresAt = new Date(baseDate);
           expiresAt.setMonth(expiresAt.getMonth() + 1);
         } else {
