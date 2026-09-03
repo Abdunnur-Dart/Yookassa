@@ -18,16 +18,16 @@ jobs:
         with:
           node-version: '18'
 
-      # Указываем working-directory для поиска package.json в папке api
+      # Устанавливаем зависимости из папки api
       - name: Install Dependencies
         working-directory: ./api
         run: npm install
 
-      # Запускаем скрипт внутри папки api
+      # Запускаем скрипт из корневой папки, подключая node_modules из api
       - name: Run Expire Script
-        working-directory: ./api
         env:
           SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NODE_PATH: ./api/node_modules
         run: |
           echo "$SERVICE_ACCOUNT_KEY" > serviceAccountKey.json
           node expire-subscriptions.js
