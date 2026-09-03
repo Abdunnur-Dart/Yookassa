@@ -23,7 +23,8 @@ jobs:
           node-version: '18'
 
       # 3. Устанавливаем зависимости (firebase-admin)
-      - name: Install Dependencies
+- name: Install Dependencies
+        working-directory: ./api
         run: npm install
 
       # 4. Создаем файл ключа, запускаем скрипт и удаляем ключ после завершения
