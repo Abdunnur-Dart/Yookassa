@@ -1,26 +1,26 @@
 const crypto = require('crypto');
-const { initializeApp, getApps, cert } = require('firebase-admin/app'); // NEW
-const { getAuth } = require('firebase-admin/auth'); // NEW
-const { getFirestore } = require('firebase-admin/firestore'); // NEW
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore } = require('firebase-admin/firestore');
 
-// Инициализация Firebase Admin для проверки ID-токена пользователя // NEW
-if (!getApps().length) { // NEW
-  try { // NEW
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY // NEW
-      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') // NEW
-      : undefined; // NEW
+// Инициализация Firebase Admin для проверки ID-токена пользователя
+if (!getApps().length) {
+  try {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY
+      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : undefined;
 
-    initializeApp({ // NEW
-      credential: cert({ // NEW
-        projectId: process.env.FIREBASE_PROJECT_ID, // NEW
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL, // NEW
-        privateKey: privateKey, // NEW
-      }), // NEW
-    }); // NEW
-  } catch (err) { // NEW
-    console.error('Firebase Admin initialization error:', err); // NEW
-  } // NEW
-} // NEW
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      }),
+    });
+  } catch (err) {
+    console.error('Firebase Admin initialization error:', err);
+  }
+}
 
 module.exports = async (req, res) => {
     // Настройка CORS
@@ -52,45 +52,63 @@ module.exports = async (req, res) => {
         try {
             decodedToken = await getAuth().verifyIdToken(idToken);
         } catch (authError) {
-            console.error(' Ошибка проверки токена:', authError);
+            console.error('Ошибка проверки токена:', authError);
             return res.status(401).json({ error: 'Недействительный токен авторизации' });
         }
 
         const userId = decodedToken.uid;
         const { productId, isWeb } = req.body || {};
-        const targetProductId = productId || 'lifetime_access'; // CHANGED
+        const targetProductId = productId || 'lifetime_access';
 
-        // --- ЗАПРУЦЕНА ЦЕНА ИЗ FIRESTORE (Production-ready с фоллбеком) --- // NEW
-        let product; // NEW
-        try { // NEW
-            const db = getFirestore(); // NEW
-            // Ищем товар в коллекции 'products' по его ID (например, документа 'lifetime_access') // NEW
-            const productDoc = await db.collection('products').doc(targetProductId).get(); // NEW
+        // --- ЗАПРОС ЦЕНЫ ИЗ FIRESTORE ---
+        let product;
+        try {
+            const db = getFirestore();
+            const productDoc = await db.collection('products').doc(targetProductId).get();
             
-            if (productDoc.exists) { // NEW
-                const data = productDoc.data(); // NEW
-                product = { // NEW
-                    // Поддерживаем разные варианты названий полей в базе (amount / price) и приводим к строке // NEW
-                    amount: String(data.amount || data.price || '35.00'), // NEW
-                    description: data.description || 'Разовая покупка: Доступ Навсегда', // NEW
-                    period: data.period || data.subscription_period || 'lifetime' // NEW
-                }; // NEW
-            } // NEW
-        } catch (dbError) { // NEW
-            console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError); // NEW
-        } // NEW
+            if (productDoc.exists) {
+                const data = productDoc.data();
+                product = {
+                    amount: String(data.amount || data.price || '35.00'),
+                    description: data.description || 'Покупка подписки',
+                    period: data.period || data.subscription_period || targetProductId
+                };
+            }
+        } catch (dbError) {
+            console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError);
+        }
 
-        // Фоллбек на случай, если документ в Firestore не найден или база недоступна // NEW
-        if (!product) { // NEW
+        // --- ФОЛЛБЕК СПИСОК ТОВАРОВ (Если в Firestore нет документа) ---
+        if (!product) {
             const PRODUCTS = {
                 'lifetime_access': {
                     amount: '35.00',
                     description: 'Разовая покупка: Доступ Навсегда',
                     period: 'lifetime'
                 },
+                'sub_1_month': {
+                    amount: '199.00',
+                    description: 'Подписка на 1 месяц',
+                    period: '1_month'
+                },
+                'sub_1_year': {
+                    amount: '1990.00',
+                    description: 'Подписка на 1 год',
+                    period: '1_year'
+                },
+                '1_month': {
+                    amount: '199.00',
+                    description: 'Подписка на 1 месяц',
+                    period: '1_month'
+                },
+                '1_year': {
+                    amount: '1990.00',
+                    description: 'Подписка на 1 год',
+                    period: '1_year'
+                }
             };
-            product = PRODUCTS[targetProductId]; // CHANGED
-        } // NEW
+            product = PRODUCTS[targetProductId];
+        }
 
         if (!product) {
             return res.status(400).json({ error: 'Неверный ID товара' });
@@ -124,7 +142,7 @@ module.exports = async (req, res) => {
             description: product.description,
             metadata: {
                 user_id: userId,
-                product_id: targetProductId, // CHANGED
+                product_id: targetProductId,
                 subscription_period: product.period,
             }
         };
@@ -135,8 +153,8 @@ module.exports = async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64'),
                 'Idempotence-Key': idempotenceKey
-          },
-          body: JSON.stringify(paymentPayload)
+            },
+            body: JSON.stringify(paymentPayload)
         });
 
         const data = await response.json();
@@ -146,7 +164,6 @@ module.exports = async (req, res) => {
             return res.status(response.status).json({ error: data.description || 'YooKassa error' });
         }
 
-        // Возвращаем поле в формате, который ожидает ваш Flutter-клиент
         return res.status(200).json({
             confirmationUrl: data.confirmation.confirmation_url,
             payment_id: data.id
