@@ -2,9 +2,7 @@ name: Daily Subscription Expire Cron
 
 on:
   schedule:
-    # Запуск каждый день в 00:00 UTC (03:00 по МСК)
     - cron: '0 0 * * *'
-  # Кнопка для ручного запуска из интерфейса GitHub Actions
   workflow_dispatch:
 
 jobs:
@@ -12,23 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Скачиваем код из репозитория
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Настраиваем Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # 3. Устанавливаем зависимости (firebase-admin)
-- name: Install Dependencies
+      # Указываем working-directory для поиска package.json в папке api
+      - name: Install Dependencies
         working-directory: ./api
         run: npm install
 
-      # 4. Создаем файл ключа, запускаем скрипт и удаляем ключ после завершения
+      # Запускаем скрипт внутри папки api
       - name: Run Expire Script
+        working-directory: ./api
         env:
           SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
