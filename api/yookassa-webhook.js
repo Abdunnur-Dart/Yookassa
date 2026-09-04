@@ -15,21 +15,22 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 module.exports = async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const event = req.body;
+    const event = req.body || {};
 
     if (event.event === 'payment.succeeded') {
-      const payment = event.object;
+      const payment = event.object || {};
       const metadata = payment.metadata || {};
       const userId = metadata.userId;
       const productId = metadata.productId;
 
       if (!userId || !productId) {
-        console.error('Ошибка: В метаданных отсутствуют userId или productId');
         return res.status(200).json({ status: 'ok, no metadata' });
       }
 
@@ -56,13 +57,11 @@ module.exports = async (req, res) => {
         },
         { merge: true }
       );
-
-      console.log(`Успешно активирована подписка (${productId}) для пользователя: ${userId}`);
     }
 
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('Ошибка при обработке вебхука ЮKassa:', error);
+    console.error('Ошибка в yookassa-webhook:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
