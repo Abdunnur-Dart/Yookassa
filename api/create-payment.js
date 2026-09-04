@@ -1,5 +1,4 @@
 const admin = require('firebase-admin');
-const axios = require('axios');
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -83,15 +82,20 @@ module.exports = async (req, res) => {
     const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
     if (!shopId || !secretKey) {
-      return res.status(500).json({ error: 'Переменные окружения YOOKASSA не заданы в Vercel' });
+      return res.status(500).json({ error: 'Переменные окружения YOOKASSA не заданы' });
     }
 
     const auth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
     const idempotencyKey = `pay_${uid}_${Date.now()}`;
 
-    const response = await axios.post(
-      'https://api.yookassa.ru/v3/payments',
-      {
+    const yooResponse = await fetch('https://api.yookassa.ru/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+        'Authorization': `Basic ${auth}`,
+      },
+      body: JSON.stringify({
         amount: {
           value: price,
           currency: 'RUB',
@@ -106,27 +110,25 @@ module.exports = async (req, res) => {
           userId: String(uid),
           productId: String(productId),
         },
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-          'Authorization': `Basic ${auth}`,
-        },
-      }
-    );
+      }),
+    });
 
-    if (response.data && response.data.confirmation && response.data.confirmation.confirmation_url) {
+    const data = await yooResponse.json();
+
+    if (yooResponse.ok && data.confirmation && data.confirmation.confirmation_url) {
       return res.status(200).json({
-        confirmationUrl: response.data.confirmation.confirmation_url,
+        confirmationUrl: data.confirmation.confirmation_url,
       });
     } else {
-      return res.status(400).json({ error: 'Не удалось получить ссылку на оплату' });
+      console.error('Ошибка от ЮKassa:', data);
+      return res.status(400).json({
+        error: data.description || 'Не удалось получить ссылку на оплату',
+      });
     }
   } catch (error) {
-    console.error('Детали ошибки:', error.response?.data || error.message);
+    console.error('Ошибка в create-payment:', error);
     return res.status(500).json({
-      error: error.response?.data?.description || error.message || 'Ошибка сервера',
+      error: error.message || 'Ошибка сервера',
     });
   }
 };
