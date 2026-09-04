@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(200).json({ error: 'Method Not Allowed' });
   }
 
   try {
@@ -84,9 +84,23 @@ module.exports = async (req, res) => {
     const uid = decodedToken.uid;
     const productId = body.productId || 'sub_1_month';
 
-    let price = '199.00';
-    if (productId === 'sub_1_year') price = '1990.00';
-    if (productId === 'lifetime_access') price = '2990.00';
+    // 3. ПОЛУЧЕНИЕ ЦЕНЫ ИЗ FIRESTORE
+    let price = null;
+    try {
+      const productDoc = await db.collection('products').doc(productId).get();
+      if (productDoc.exists && productDoc.data().price !== undefined) {
+        price = Number(productDoc.data().price).toFixed(2);
+      }
+    } catch (dbErr) {
+      console.error('Ошибка чтения цены из Firestore:', dbErr);
+    }
+
+    // Резервный вариант, если документ в Firestore временно недоступен
+    if (!price) {
+      if (productId === 'sub_1_year') price = '1990.00';
+      else if (productId === 'lifetime_access') price = '2990.00';
+      else price = '199.00';
+    }
 
     const shopId = (process.env.YOOKASSA_SHOP_ID || '').trim();
     const secretKey = (process.env.YOOKASSA_SECRET_KEY || '').trim();
@@ -120,7 +134,6 @@ module.exports = async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Idempotence-Key': idempotencyKey,
-        'Idempotency-Key': idempotencyKey,
         'Authorization': `Basic ${auth}`,
       },
       body: JSON.stringify(payload),
