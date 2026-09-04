@@ -1,15 +1,8 @@
-{
-  "promo_banner": {
-    "enabled": true,
-    "title": "🔥 Черная пятница!",
-    "subtitle": "Скидки на все тарифы действуют до конца недели"
-  },
-  ...
-}
   "sub_1_month": {
     "price": 199,
     "title": "1 месяц",
     "subtitle": "Гибкий старт"
+     "badge": "акция"
   },
   "sub_1_year": {
     "price": 1990,
