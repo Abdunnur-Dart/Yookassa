@@ -1,6 +1,8 @@
 {
+  "name": "yookassa-backend",
+  "version": "1.0.0",
   "dependencies": {
-    "@yoomoney/yookassa-sdk": "^1.1.0",
+    "axios": "^1.6.8",
     "firebase-admin": "^11.11.1"
   }
 }
