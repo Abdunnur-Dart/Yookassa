@@ -18,6 +18,11 @@ function requestYooKassa(path, method, body, idempotencyKey) {
   return new Promise((resolve, reject) => {
     const shopId = process.env.YOOKASSA_SHOP_ID;
     const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+    if (!shopId || !secretKey) {
+      return reject(new Error('Не заданы YOOKASSA_SHOP_ID или YOOKASSA_SECRET_KEY в Vercel'));
+    }
+
     const basicAuth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
     const postData = JSON.stringify(body);
 
@@ -59,12 +64,11 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Если это вебхук от ЮKassa (содержит event), перенаправляем обработку в yookassa-webhook.js
+  // Если это вебхук от ЮKassa
   if (req.body && req.body.event) {
     return webhookHandler(req, res);
   }
 
-  // Логика создания платежа
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -74,23 +78,28 @@ module.exports = async (req, res) => {
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
-    const { productId } = req.body || {};
 
+    const productId = (req.body && req.body.productId) ? req.body.productId : 'sub_1_month';
+
+    // Явный расчет суммы в формате строки с двумя знаками после запятой
     let price = '199.00';
     if (productId === 'sub_1_year') price = '1990.00';
     if (productId === 'lifetime_access') price = '2990.00';
 
     const paymentData = {
-      amount: { value: price, currency: 'RUB' },
+      amount: {
+        value: price,
+        currency: 'RUB',
+      },
       confirmation: {
         type: 'redirect',
-        return_url: 'https://yookassaproj201514.vercel.app/success',
+        return_url: 'https://yookassaproj201514.vercel.app',
       },
       capture: true,
-      description: `Оплата подписки (${productId})`,
+      description: `Оплата подписки ${productId}`,
       metadata: {
-        userId: uid,
-        productId: productId,
+        userId: String(uid),
+        productId: String(productId),
       },
     };
 
@@ -102,12 +111,13 @@ module.exports = async (req, res) => {
         confirmationUrl: yooRes.body.confirmation.confirmation_url,
       });
     } else {
+      console.error('Детали ошибки от ЮKassa:', yooRes.body);
       return res.status(400).json({
-        error: yooRes.body.description || 'Ошибка создания платежа в ЮKassa',
+        error: yooRes.body.description || yooRes.body.message || 'Ошибка создания платежа в ЮKassa',
       });
     }
   } catch (error) {
     console.error('Ошибка в create-payment:', error);
-    return res.status(500).json({ error: error.message || 'Ошибка сервера' });
+    return res.status(500).json({ error: error.message || 'Внутренняя ошибка сервера' });
   }
 };
