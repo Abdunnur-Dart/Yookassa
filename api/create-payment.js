@@ -119,6 +119,7 @@ module.exports = async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Idempotence-Key': idempotencyKey,
         'Idempotency-Key': idempotencyKey,
         'Authorization': `Basic ${auth}`,
       },
@@ -133,7 +134,6 @@ module.exports = async (req, res) => {
       });
     }
 
-    // Возвращаем HTTP 200, чтобы Flutter прочитал точное описание ошибки
     const errDetails = data.description || data.code || JSON.stringify(data);
     return res.status(200).json({
       error: `Ошибка ЮKassa: ${errDetails}`,
