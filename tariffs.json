@@ -1,0 +1,20 @@
+{
+  "sub_1_month": {
+    "price": 199,
+    "title": "1 месяц",
+    "subtitle": "Гибкий старт",
+    "badge": null
+  },
+  "sub_1_year": {
+    "price": 1990,
+    "title": "1 год",
+    "subtitle": "Выбор большинства",
+    "badge": "ХИТ"
+  },
+  "lifetime_access": {
+    "price": 2990,
+    "title": "Навсегда",
+    "subtitle": "Разовый платеж",
+    "badge": "АКЦИЯ"
+  }
+}
