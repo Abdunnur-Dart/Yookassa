@@ -48,7 +48,6 @@ module.exports = async (req, res) => {
       const verifiedPayment = await verifyResponse.json();
 
       if (!verifyResponse.ok || verifiedPayment.status !== 'succeeded') {
-        console.error('❌ Попытка подделки вебхука! Платеж не подтвержден в ЮKassa:', verifiedPayment);
         return res.status(400).json({ error: 'Payment verification failed' });
       }
 
@@ -101,16 +100,11 @@ module.exports = async (req, res) => {
           paymentId: verifiedPayment.id,
           paymentMethodId: paymentMethodId || null,
         }, { merge: true });
-
-        console.log(`✅ Премиум (${period}) успешно активирован для UID: ${userId}`);
-      } else {
-        console.warn('⚠️ Webhook получен, но user_id отсутствует в metadata');
       }
     }
 
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('❌ Ошибка при обработке вебхука:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
