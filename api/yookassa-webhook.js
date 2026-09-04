@@ -22,7 +22,6 @@ module.exports = async (req, res) => {
   try {
     const event = req.body;
 
-    // Проверяем статус события оплаты
     if (event.event === 'payment.succeeded') {
       const payment = event.object;
       const metadata = payment.metadata || {};
@@ -31,10 +30,9 @@ module.exports = async (req, res) => {
 
       if (!userId || !productId) {
         console.error('Ошибка: В метаданных отсутствуют userId или productId');
-        return res.status(400).json({ error: 'Missing metadata' });
+        return res.status(200).json({ status: 'ok, no metadata' });
       }
 
-      // Вычисляем дату истечения подписки
       let expiresAt = null;
       let isLifetime = false;
       const now = new Date();
@@ -47,14 +45,13 @@ module.exports = async (req, res) => {
         isLifetime = true;
       }
 
-      // Обновляем статус подписки пользователя в Firestore
       await db.collection('users').doc(userId).set(
         {
           isPremium: true,
           isLifetime: isLifetime,
           expiresAt: expiresAt ? admin.firestore.Timestamp.fromDate(expiresAt) : null,
-          lastPaymentId: payment.id, // CHANGED: Сохраняем ID платежа для возврата
-          lastPaymentAmount: payment.amount ? payment.amount.value : null, // CHANGED: Сохраняем сумму
+          lastPaymentId: payment.id,
+          lastPaymentAmount: payment.amount ? payment.amount.value : null,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }
