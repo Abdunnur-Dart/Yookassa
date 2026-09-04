@@ -17,7 +17,7 @@ if (!getApps().length) {
       }),
     });
   } catch (err) {
-    console.error('Firebase Admin initialization error:', err);
+    console.error('Firebase Admin error:', err);
   }
 }
 
@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Необходима авторизация (Токен отсутствует)' });
+            return res.status(401).json({ error: 'Необходима авторизация' });
         }
 
         const idToken = authHeader.split('Bearer ')[1];
@@ -49,8 +49,7 @@ module.exports = async (req, res) => {
         try {
             decodedToken = await getAuth().verifyIdToken(idToken);
         } catch (authError) {
-            console.error('Ошибка проверки токена:', authError);
-            return res.status(401).json({ error: 'Недействительный токен авторизации' });
+            return res.status(401).json({ error: 'Недействительный токен' });
         }
 
         const userId = decodedToken.uid;
@@ -71,36 +70,14 @@ module.exports = async (req, res) => {
                 };
             }
         } catch (dbError) {
-            console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError);
+            console.error('Firestore Error:', dbError);
         }
 
         if (!product) {
             const PRODUCTS = {
-                'lifetime_access': {
-                    amount: '35.00',
-                    description: 'Разовая покупка: Доступ Навсегда',
-                    period: 'lifetime'
-                },
-                'sub_1_month': {
-                    amount: '199.00',
-                    description: 'Подписка на 1 месяц',
-                    period: '1_month'
-                },
-                'sub_1_year': {
-                    amount: '1990.00',
-                    description: 'Подписка на 1 год',
-                    period: '1_year'
-                },
-                '1_month': {
-                    amount: '199.00',
-                    description: 'Подписка на 1 месяц',
-                    period: '1_month'
-                },
-                '1_year': {
-                    amount: '1990.00',
-                    description: 'Подписка на 1 год',
-                    period: '1_year'
-                }
+                'lifetime_access': { amount: '35.00', description: 'Доступ Навсегда', period: 'lifetime' },
+                'sub_1_month': { amount: '199.00', description: 'Подписка на 1 месяц', period: '1_month' },
+                'sub_1_year': { amount: '1990.00', description: 'Подписка на 1 год', period: '1_year' }
             };
             product = PRODUCTS[targetProductId];
         }
@@ -112,11 +89,6 @@ module.exports = async (req, res) => {
         const shopId = process.env.YOOKASSA_SHOP_ID;
         const secretKey = process.env.YOOKASSA_SECRET_KEY;
 
-        if (!shopId || !secretKey) {
-            console.error('YooKassa credentials missing');
-            return res.status(500).json({ error: 'YooKassa credentials not configured' });
-        }
-
         const returnUrl = isWeb
             ? 'https://yookassaproj201514.vercel.app/'
             : 'muallimsani://success';
@@ -124,16 +96,9 @@ module.exports = async (req, res) => {
         const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
 
         const paymentPayload = {
-            amount: {
-                value: product.amount,
-                currency: "RUB"
-            },
+            amount: { value: product.amount, currency: "RUB" },
             capture: true,
-            save_payment_method: false,
-            confirmation: {
-                type: 'redirect',
-                return_url: returnUrl
-            },
+            confirmation: { type: 'redirect', return_url: returnUrl },
             description: product.description,
             metadata: {
                 user_id: userId,
@@ -155,7 +120,6 @@ module.exports = async (req, res) => {
         const data = await response.json();
 
         if (!response.ok) {
-            console.error('YooKassa API Error:', data);
             return res.status(response.status).json({ error: data.description || 'YooKassa error' });
         }
 
@@ -165,7 +129,6 @@ module.exports = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Payment creation internal error:', error);
         return res.status(500).json({ error: error.message || 'Internal server error' });
     }
 };
