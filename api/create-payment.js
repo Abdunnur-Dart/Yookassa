@@ -1,171 +1,172 @@
-const crypto = require('crypto');
-const { initializeApp, getApps, cert } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
-const { getFirestore } = require('firebase-admin/firestore');
+const admin = require('firebase-admin');
+const https = require('https');
 
-if (!getApps().length) {
-  try {
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY
-      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-      : undefined;
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY
+        ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+        : undefined,
+    }),
+  });
+}
 
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: privateKey,
-      }),
+const db = admin.firestore();
+
+// Хелпер для отправки запроса в ЮKassa (создание платежа)
+function requestYooKassaPayment(shopId, secretKey, paymentData, idempotencyKey) {
+  return new Promise((resolve, reject) => {
+    const postData = JSON.stringify(paymentData);
+    const basicAuth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
+
+    const options = {
+      hostname: 'api.yookassa.ru',
+      port: 443,
+      path: '/v3/payments',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'Authorization': `Basic ${basicAuth}`,
+        'Idempotency-Key': idempotencyKey,
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve({ statusCode: res.statusCode, body: JSON.parse(data) });
+        } catch (e) {
+          reject(new Error('Ошибка парсинга ответа ЮKassa: ' + data));
+        }
+      });
     });
-  } catch (err) {
-    console.error('Firebase Admin initialization error:', err);
-  }
+
+    req.on('error', (e) => reject(e));
+    req.write(postData);
+    req.end();
+  });
 }
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
-    );
+  res.setHeader('Content-Type', 'application/json');
 
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  try {
+    const body = req.body || {};
+
+    // -------------------------------------------------------------
+    // СЛУЧАЙ 1: Это УВЕДОМЛЕНИЕ (вебхук) от ЮKassa
+    // -------------------------------------------------------------
+    if (body.event === 'payment.succeeded') {
+      const payment = body.object;
+      const metadata = payment.metadata || {};
+      const userId = metadata.userId;
+      const productId = metadata.productId;
+
+      if (!userId || !productId) {
+        console.error('Ошибка: В метаданных ЮKassa нет userId или productId');
+        return res.status(200).json({ status: 'ok_but_missing_metadata' });
+      }
+
+      let expiresAt = null;
+      let isLifetime = false;
+      const now = new Date();
+
+      if (productId === 'sub_1_month') {
+        expiresAt = new Date(now.setMonth(now.getMonth() + 1));
+      } else if (productId === 'sub_1_year') {
+        expiresAt = new Date(now.setFullYear(now.getFullYear() + 1));
+      } else if (productId === 'lifetime_access') {
+        isLifetime = true;
+      }
+
+      // Обновляем статус подписки И сохраняем данные для будущего возврата
+      await db.collection('users').doc(userId).set(
+        {
+          isPremium: true,
+          isLifetime: isLifetime,
+          expiresAt: expiresAt ? admin.firestore.Timestamp.fromDate(expiresAt) : null,
+          lastPaymentId: payment.id,         // Сохраняем ID платежа для возврата
+          lastPaymentAmount: payment.amount ? payment.amount.value : null, // Сохраняем сумму
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      console.log(`Успешно активирована подписка (${productId}) для пользователя ${userId}`);
+      return res.status(200).json({ status: 'ok' });
     }
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
+    // -------------------------------------------------------------
+    // СЛУЧАЙ 2: Это ЗАПРОС НА СОЗДАНИЕ ПЛАТЕЖА из мобильного приложения
+    // -------------------------------------------------------------
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Необходима авторизация' });
     }
 
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Необходима авторизация (Токен отсутствует)' });
-        }
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const uid = decodedToken.uid;
 
-        const idToken = authHeader.split('Bearer ')[1];
-        let decodedToken;
-        try {
-            decodedToken = await getAuth().verifyIdToken(idToken);
-        } catch (authError) {
-            console.error('Ошибка проверки токена:', authError);
-            return res.status(401).json({ error: 'Недействительный токен авторизации' });
-        }
-
-        const userId = decodedToken.uid;
-        const { productId, isWeb } = req.body || {};
-        const targetProductId = productId || 'lifetime_access';
-
-        let product;
-        try {
-            const db = getFirestore();
-            const productDoc = await db.collection('products').doc(targetProductId).get();
-            
-            if (productDoc.exists) {
-                const data = productDoc.data();
-                product = {
-                    amount: String(data.amount || data.price || '35.00'),
-                    description: data.description || 'Покупка подписки',
-                    period: data.period || data.subscription_period || targetProductId
-                };
-            }
-        } catch (dbError) {
-            console.error('Ошибка чтения цены из Firestore, используем фоллбек:', dbError);
-        }
-
-        if (!product) {
-            const PRODUCTS = {
-                'lifetime_access': {
-                    amount: '35.00',
-                    description: 'Разовая покупка: Доступ Навсегда',
-                    period: 'lifetime'
-                },
-                'sub_1_month': {
-                    amount: '199.00',
-                    description: 'Подписка на 1 месяц',
-                    period: '1_month'
-                },
-                'sub_1_year': {
-                    amount: '1990.00',
-                    description: 'Подписка на 1 год',
-                    period: '1_year'
-                },
-                '1_month': {
-                    amount: '199.00',
-                    description: 'Подписка на 1 месяц',
-                    period: '1_month'
-                },
-                '1_year': {
-                    amount: '1990.00',
-                    description: 'Подписка на 1 год',
-                    period: '1_year'
-                }
-            };
-            product = PRODUCTS[targetProductId];
-        }
-
-        if (!product) {
-            return res.status(400).json({ error: 'Неверный ID товара' });
-        }
-
-        const shopId = process.env.YOOKASSA_SHOP_ID;
-        const secretKey = process.env.YOOKASSA_SECRET_KEY;
-
-        if (!shopId || !secretKey) {
-            console.error('YooKassa credentials missing');
-            return res.status(500).json({ error: 'YooKassa credentials not configured' });
-        }
-
-        const returnUrl = isWeb
-            ? 'https://yookassaproj201514.vercel.app/'
-            : 'muallimsani://success';
-
-        const idempotenceKey = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-
-        const paymentPayload = {
-            amount: {
-                value: product.amount,
-                currency: "RUB"
-            },
-            capture: true,
-            save_payment_method: false,
-            confirmation: {
-                type: 'redirect',
-                return_url: returnUrl
-            },
-            description: product.description,
-            metadata: {
-                user_id: userId,
-                product_id: targetProductId,
-                subscription_period: product.period,
-            }
-        };
-
-        const response = await fetch('https://api.yookassa.ru/v3/payments', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + Buffer.from(`${shopId}:${secretKey}`).toString('base64'),
-                'Idempotence-Key': idempotenceKey
-            },
-            body: JSON.stringify(paymentPayload)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error('YooKassa API Error:', data);
-            return res.status(response.status).json({ error: data.description || 'YooKassa error' });
-        }
-
-        return res.status(200).json({
-            confirmationUrl: data.confirmation.confirmation_url,
-            payment_id: data.id
-        });
-
-    } catch (error) {
-        console.error('Payment creation internal error:', error);
-        return res.status(500).json({ error: error.message || 'Internal server error' });
+    const { productId } = body;
+    if (!productId) {
+      return res.status(400).json({ error: 'Не указан productId' });
     }
+
+    // Определение стоимости
+    let price = '199.00';
+    if (productId === 'sub_1_year') price = '1990.00';
+    if (productId === 'lifetime_access') price = '3990.00';
+
+    const shopId = process.env.YOOKASSA_SHOP_ID;
+    const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+    if (!shopId || !secretKey) {
+      return res.status(500).json({ error: 'Ключи ЮKassa не настроены в Vercel' });
+    }
+
+    const paymentData = {
+      amount: {
+        value: price,
+        currency: 'RUB',
+      },
+      confirmation: {
+        type: 'redirect',
+        return_url: 'https://yookassaproj201514.vercel.app/success',
+      },
+      capture: true,
+      description: `Оплата подписки ${productId}`,
+      // ОБЯЗАТЕЛЬНО: Передаем metadata, чтобы при возврате вебхука знать, чей это платеж
+      metadata: {
+        userId: uid,
+        productId: productId,
+      },
+    };
+
+    const idempotencyKey = `pay_${uid}_${Date.now()}`;
+    const yooResponse = await requestYooKassaPayment(shopId, secretKey, paymentData, idempotencyKey);
+
+    if (yooResponse.statusCode === 200 && yooResponse.body.confirmation) {
+      return res.status(200).json({
+        confirmationUrl: yooResponse.body.confirmation.confirmation_url,
+      });
+    } else {
+      console.error('Ошибка создания платежа в ЮKassa:', yooResponse.body);
+      return res.status(400).json({
+        error: yooResponse.body.description || 'Не удалось создать платеж в ЮKassa',
+      });
+    }
+  } catch (error) {
+    console.error('Ошибка серверной функции:', error);
+    return res.status(500).json({ error: error.message || 'Ошибка сервера' });
+  }
 };
