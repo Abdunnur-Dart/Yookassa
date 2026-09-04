@@ -1,5 +1,4 @@
 const admin = require('firebase-admin');
-const { YooCheckout } = require('@yoomoney/yookassa-sdk');
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -14,10 +13,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const checkout = new YooCheckout({
-  shopId: process.env.YOOKASSA_SHOP_ID,
-  secretKey: process.env.YOOKASSA_SECRET_KEY,
-});
 
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
@@ -27,18 +22,26 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // 1. ПРОВЕРКА АВТОРИЗАЦИИ
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Необходима авторизация' });
+      return res.status(200).json({ error: 'Необходима авторизация (Bearer token)' });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (authError) {
+      return res.status(200).json({ error: `Ошибка проверки токена: ${authError.message}` });
+    }
+
     const uid = decodedToken.uid;
 
+    // 2. ПОЛУЧЕНИЕ ДАННЫХ ПЛАТЕЖА ИЗ FIRESTORE
     const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
+      return res.status(200).json({ error: 'Пользователь не найден в базе данных' });
     }
 
     const userData = userDoc.data();
@@ -46,25 +49,45 @@ module.exports = async (req, res) => {
     const paymentAmount = userData.lastPaymentAmount;
 
     if (!paymentId || !paymentAmount) {
-      return res.status(400).json({
-        error: 'Не найдены данные последнего платежа (lastPaymentId / lastPaymentAmount) в Firestore',
+      return res.status(200).json({
+        error: 'Не найдены данные последнего платежа в Firestore (lastPaymentId / lastPaymentAmount)',
       });
     }
 
+    // 3. ОТПРАВКА ЗАПРОСА НА ВОЗВРАТ В ЮКАССУ
+    const shopId = (process.env.YOOKASSA_SHOP_ID || '').trim();
+    const secretKey = (process.env.YOOKASSA_SECRET_KEY || '').trim();
+
+    if (!shopId || !secretKey) {
+      return res.status(200).json({ error: 'Не заданы YOOKASSA_SHOP_ID или YOOKASSA_SECRET_KEY в Vercel' });
+    }
+
+    const auth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
     const idempotencyKey = `refund_${uid}_${Date.now()}`;
 
-    const refund = await checkout.createRefund(
-      {
-        payment_id: paymentId,
-        amount: {
-          value: Number(paymentAmount).toFixed(2),
-          currency: 'RUB',
-        },
+    const payload = {
+      payment_id: paymentId,
+      amount: {
+        value: Number(paymentAmount).toFixed(2),
+        currency: 'RUB',
       },
-      idempotencyKey
-    );
+    };
 
-    if (refund.status === 'succeeded' || refund.status === 'pending') {
+    const yooResponse = await fetch('https://api.yookassa.ru/v3/refunds', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotence-Key': idempotencyKey,
+        'Idempotency-Key': idempotencyKey,
+        'Authorization': `Basic ${auth}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await yooResponse.json();
+
+    if (yooResponse.ok && (data.status === 'succeeded' || data.status === 'pending')) {
+      // Снимаем подписку у пользователя
       await db.collection('users').doc(uid).set(
         {
           isPremium: false,
@@ -80,10 +103,15 @@ module.exports = async (req, res) => {
         message: 'Подписка отменена, возврат оформлен',
       });
     } else {
-      return res.status(400).json({ error: 'Ошибка проведения возврата ЮKassa' });
+      const errDetails = data.description || data.code || JSON.stringify(data);
+      return res.status(200).json({
+        error: `Ошибка возврата ЮKassa: ${errDetails}`,
+      });
     }
   } catch (error) {
     console.error('Ошибка в cancel-subscription:', error);
-    return res.status(500).json({ error: error.message || 'Ошибка сервера при возврате' });
+    return res.status(200).json({
+      error: `Ошибка сервера при отмене: ${error.message}`,
+    });
   }
 };
