@@ -2,7 +2,8 @@
   "sub_1_month": {
     "price": 199,
     "title": "1 месяц",
-    "subtitle": "Гибкий старт"
+    "subtitle": "Гибкий старт",
+    "badge": "АКЦИЯ"
   },
   "sub_1_year": {
     "price": 1990,
