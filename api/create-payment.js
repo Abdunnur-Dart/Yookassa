@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
-const { YooCheckout } = require('@yoomoney/yookassa-sdk');
-const webhookHandler = require('./yookassa-webhook');
+const axios = require('axios');
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -14,10 +13,7 @@ if (!admin.apps.length) {
   });
 }
 
-const checkout = new YooCheckout({
-  shopId: process.env.YOOKASSA_SHOP_ID,
-  secretKey: process.env.YOOKASSA_SECRET_KEY,
-});
+const db = admin.firestore();
 
 module.exports = async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
@@ -26,12 +22,48 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Если ЮKassa прислала вебхук на этот URL — передаем в обработчик вебхуков
-  if (req.body && req.body.event) {
-    return webhookHandler(req, res);
-  }
-
   try {
+    const body = req.body || {};
+
+    // 1. ОБРАБОТКА ВЕБХУКА ОТ ЮКАССЫ
+    if (body.event === 'payment.succeeded') {
+      const payment = body.object || {};
+      const metadata = payment.metadata || {};
+      const userId = metadata.userId;
+      const productId = metadata.productId;
+
+      if (!userId || !productId) {
+        return res.status(200).json({ status: 'ok, no metadata' });
+      }
+
+      let expiresAt = null;
+      let isLifetime = false;
+      const now = new Date();
+
+      if (productId === 'sub_1_month') {
+        expiresAt = new Date(now.setMonth(now.getMonth() + 1));
+      } else if (productId === 'sub_1_year') {
+        expiresAt = new Date(now.setFullYear(now.getFullYear() + 1));
+      } else if (productId === 'lifetime_access') {
+        isLifetime = true;
+      }
+
+      await db.collection('users').doc(userId).set(
+        {
+          isPremium: true,
+          isLifetime: isLifetime,
+          expiresAt: expiresAt ? admin.firestore.Timestamp.fromDate(expiresAt) : null,
+          lastPaymentId: payment.id,
+          lastPaymentAmount: payment.amount ? payment.amount.value : null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return res.status(200).json({ status: 'ok' });
+    }
+
+    // 2. СОЗДАНИЕ ПЛАТЕЖА ИЗ ФЛАТТЕРА
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Необходима авторизация' });
@@ -41,15 +73,24 @@ module.exports = async (req, res) => {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
-    const productId = (req.body && req.body.productId) ? req.body.productId : 'sub_1_month';
+    const productId = body.productId || 'sub_1_month';
 
     let price = '199.00';
     if (productId === 'sub_1_year') price = '1990.00';
     if (productId === 'lifetime_access') price = '2990.00';
 
+    const shopId = process.env.YOOKASSA_SHOP_ID;
+    const secretKey = process.env.YOOKASSA_SECRET_KEY;
+
+    if (!shopId || !secretKey) {
+      return res.status(500).json({ error: 'Переменные окружения YOOKASSA не заданы в Vercel' });
+    }
+
+    const auth = Buffer.from(`${shopId}:${secretKey}`).toString('base64');
     const idempotencyKey = `pay_${uid}_${Date.now()}`;
 
-    const payment = await checkout.createPayment(
+    const response = await axios.post(
+      'https://api.yookassa.ru/v3/payments',
       {
         amount: {
           value: price,
@@ -66,18 +107,26 @@ module.exports = async (req, res) => {
           productId: String(productId),
         },
       },
-      idempotencyKey
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+          'Authorization': `Basic ${auth}`,
+        },
+      }
     );
 
-    if (payment && payment.confirmation && payment.confirmation.confirmation_url) {
+    if (response.data && response.data.confirmation && response.data.confirmation.confirmation_url) {
       return res.status(200).json({
-        confirmationUrl: payment.confirmation.confirmation_url,
+        confirmationUrl: response.data.confirmation.confirmation_url,
       });
     } else {
       return res.status(400).json({ error: 'Не удалось получить ссылку на оплату' });
     }
   } catch (error) {
-    console.error('Ошибка в create-payment:', error);
-    return res.status(500).json({ error: error.message || 'Ошибка сервера при создании платежа' });
+    console.error('Детали ошибки:', error.response?.data || error.message);
+    return res.status(500).json({
+      error: error.response?.data?.description || error.message || 'Ошибка сервера',
+    });
   }
 };
