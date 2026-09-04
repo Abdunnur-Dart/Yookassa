@@ -18,12 +18,12 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: ./api/package-lock.json
+          cache-dependency-path: ./api/package.json
 
       # Устанавливаем зависимости из папки api
       - name: Install Dependencies
         working-directory: ./api
-        run: npm ci
+        run: npm install
 
       # Запускаем скрипт из корневой папки, подключая node_modules из api
       - name: Run Expire Script
