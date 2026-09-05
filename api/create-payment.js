@@ -57,8 +57,11 @@ module.exports = async (req, res) => {
           isPremium: true,
           isLifetime: isLifetime,
           expiresAt: expiresAt ? admin.firestore.Timestamp.fromDate(expiresAt) : null,
-          lastPaymentId: payment.id,
-          lastPaymentAmount: payment.amount ? payment.amount.value : null,
+          paymentId: payment.id || null,
+          paymentMethodId: payment.payment_method ? payment.payment_method.id : null,
+          premiumPurchasedAt: admin.firestore.FieldValue.serverTimestamp(),
+          subscriptionPeriod: isLifetime ? 'lifetime' : productId,
+          autoRenew: false,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }
@@ -84,22 +87,27 @@ module.exports = async (req, res) => {
     const uid = decodedToken.uid;
     const productId = body.productId || 'sub_1_month';
 
-    // 3. ПОЛУЧЕНИЕ ЦЕНЫ ИЗ FIRESTORE
+    // 3. ПОЛУЧЕНИЕ АКТУАЛЬНОЙ ЦЕНЫ ИЗ CONFIG/TARIFFS
     let price = null;
     try {
-      const productDoc = await db.collection('products').doc(productId).get();
-      if (productDoc.exists && productDoc.data().price !== undefined) {
-        price = Number(productDoc.data().price).toFixed(2);
+      const tariffDoc = await db.collection('config').doc('tariffs').get();
+      if (tariffDoc.exists) {
+        const rawJson = tariffDoc.data().json_data || '{}';
+        const tariffsData = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
+
+        if (tariffsData[productId] && tariffsData[productId].price !== undefined) {
+          price = Number(tariffsData[productId].price).toFixed(2);
+        }
       }
     } catch (dbErr) {
-      console.error('Ошибка чтения цены из Firestore:', dbErr);
+      console.error('Ошибка чтения цены из config/tariffs:', dbErr);
     }
 
-    // Резервный вариант, если документ в Firestore временно недоступен
+    // Резервный вариант, если документ в Firestore недоступен
     if (!price) {
       if (productId === 'sub_1_year') price = '1990.00';
       else if (productId === 'lifetime_access') price = '2990.00';
-      else price = '199.00';
+      else price = '189.00';
     }
 
     const shopId = (process.env.YOOKASSA_SHOP_ID || '').trim();
